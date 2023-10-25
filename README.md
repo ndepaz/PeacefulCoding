@@ -19,4 +19,6 @@ var expression3 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperat
 
 var expression4 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.Contains).Value("a");
 
+var expression5 = ExpressionMaker.For<Person>().On(x => x.Age).When(QueryOperation.LessThan).Value(18);
+
 ```
