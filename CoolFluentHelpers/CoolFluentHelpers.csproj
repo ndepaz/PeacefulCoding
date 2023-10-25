@@ -11,7 +11,28 @@
     <RepositoryUrl>https://github.com/ndepaz/PeacefulCoding</RepositoryUrl>
     <PackageTags>v1.0.0</PackageTags>
     <PackageReleaseNotes>initial</PackageReleaseNotes>
+    <PackageProjectUrl>https://github.com/ndepaz/PeacefulCoding</PackageProjectUrl>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageRequireLicenseAcceptance>False</PackageRequireLicenseAcceptance>
+    <Authors>Noe de Paz</Authors>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>programming_fun.png</PackageIcon>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\LICENSE">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\README.md">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+    <None Include="..\resources\programming_fun.png">
+      <Pack>True</Pack>
+      <PackagePath>\</PackagePath>
+    </None>
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="CSharpFunctionalExtensions" Version="2.40.3" />
