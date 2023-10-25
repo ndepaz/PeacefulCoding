@@ -15,4 +15,6 @@ var expression = ExpressionMaker.For<Person>().On(x => x.Name).Equals("Jane");
 
 var expression2 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.Equals).Value("Jane");
 
+var expression3 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.StartsWith).Value("Ja");
+
 ```
