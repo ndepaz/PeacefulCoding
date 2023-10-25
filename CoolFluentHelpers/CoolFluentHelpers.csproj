@@ -17,6 +17,7 @@
     <Authors>Noe de Paz</Authors>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>programming_fun.png</PackageIcon>
+    <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
   </PropertyGroup>
 
   <ItemGroup>
