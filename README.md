@@ -17,4 +17,6 @@ var expression2 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperat
 
 var expression3 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.StartsWith).Value("Ja");
 
+var expression4 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.Contains).Value("a");
+
 ```
