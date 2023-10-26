@@ -22,3 +22,16 @@ var expression4 = ExpressionMaker.For<Person>().WithProperty(x => x.Name).When(Q
 var expression5 = ExpressionMaker.For<Person>().WithProperty(x => x.Age).When(QueryOperation.LessThan).Value(18);
 
 ```
+
+## Installation
+
+You can install the package from NuGet:
+
+```
+NuGet\Install-Package CoolFluentHelpers
+```
+Or via the .NET Core CLI:
+
+```
+dotnet add package CoolFluentHelpers
+```

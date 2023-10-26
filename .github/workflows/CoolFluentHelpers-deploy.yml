@@ -19,12 +19,15 @@ jobs:
 
     - name: Get Release Tag Version
       id: get_release_version
-      run: echo "::set-output name=version::${GITHUB_REF##*/}"
+      run: echo "version=${GITHUB_REF##*/}" >> $GITHUB_ENV
 
     - name: Update Project Version
       run: |
-        sed -i "s|<PackageTags>.*</PackageTags>|<PackageTags>${{ steps.get_release_version.outputs.version }}</PackageTags>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
+        sed -i "s|<PackageTags>.*</PackageTags>|<PackageTags>${{ env.version}}</PackageTags>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
 
+    - name: output CoolFluentHelpers.csproj
+      run: cat $(find . -type f -iname 'CoolFluentHelpers.csproj')
+  
     - name: Build and pack
       run: |
         dotnet build --configuration Release
@@ -33,8 +36,8 @@ jobs:
     - name: Find NuGet package
       id: find_package
       run: |
-        find . -name '*.nupkg' -print0 | xargs -0 echo "::set-output name=package_path::"
+        find . -name '*.nupkg' -print0 | xargs -0 echo "package_path=${}" >> $GITHUB_ENV
 
     - name: Publish NuGet package
       run: |
-        dotnet nuget push ${{ steps.find_package.outputs.package_path }} --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+        dotnet nuget push ${{ env.package_path }} --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
