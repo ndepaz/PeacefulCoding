@@ -9,41 +9,43 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v1
-      with:
-        dotnet-version: '6.x.x'  # Replace x with the desired version number
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: "6.x.x" # Replace x with the desired version number
 
-    - name: Get Release Tag Version
-      id: get_release_version
-      run: echo "version=${GITHUB_REF##*/}" >> $GITHUB_ENV
+      - name: Get Release Tag Version
+        id: get_release_version
+        run: |
+          version=$(echo "${{ github.ref }}" | cut -c11-)
+          echo "version=${version}" >> $GITHUB_ENV
 
-    - name: Update Project Version without prefix v
-      run: |
-        versionMinusV=$(echo "${{ env.version }}" | cut -c2-)
-        echo "versionMinusV=${versionMinusV}" >> $GITHUB_ENV
-        sed -i "s|<Version>.*</Version>|<Version>${versionMinusV}</Version>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
+      - name: Update Project Version without prefix v
+        run: |
+          versionMinusV=$(echo "${{ env.version }}" | cut -c2-)
+          echo "versionMinusV=${versionMinusV}" >> $GITHUB_ENV
+          sed -i "s|<Version>.*</Version>|<Version>${versionMinusV}</Version>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
 
-    - name: Update Project Version
-      run: |
-        sed -i "s|<PackageTags>.*</PackageTags>|<PackageTags>${{ env.versionMinusV }}</PackageTags>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
-        
-    - name: output CoolFluentHelpers.csproj
-      run: cat $(find . -type f -iname 'CoolFluentHelpers.csproj')
-  
-    - name: Build and pack
-      run: |
-        dotnet build --configuration Release
-        dotnet pack --configuration Release
+      - name: Update Project Version
+        run: |
+          sed -i "s|<PackageTags>.*</PackageTags>|<PackageTags>${{ env.versionMinusV }}</PackageTags>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
 
-    - name: Find NuGet package
-      id: find_package
-      run: |
-        find . -name '*.nupkg' -print0 | xargs -0 echo "package_path=${}" >> $GITHUB_ENV
+      - name: output CoolFluentHelpers.csproj
+        run: cat $(find . -type f -iname 'CoolFluentHelpers.csproj')
 
-    - name: Publish NuGet package
-      run: |
-        dotnet nuget push ${{ env.package_path }} --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
+      - name: Build and pack
+        run: |
+          dotnet build --configuration Release
+          dotnet pack --configuration Release
+
+      - name: Find NuGet package
+        id: find_package
+        run: |
+          find . -name '*.nupkg' -print0 | xargs -0 echo "package_path=${}" >> $GITHUB_ENV
+
+      - name: Publish NuGet package
+        run: |
+          dotnet nuget push ${{ env.package_path }} --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
