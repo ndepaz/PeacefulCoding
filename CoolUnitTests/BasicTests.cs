@@ -14,13 +14,13 @@ namespace CoolUnitTests
         [MemberData(nameof(People))]
         public void Equals_Equivalent(List<Person> people)
         {
-            var expression = ExpressionMaker.For<Person>().On(x => x.Name).Equals("Jane");
+            var expression = ExpressionMaker.For<Person>().WithProperty(x => x.Name).Equals("Jane");
 
             var result = people.AsQueryable().FirstOrDefault(expression);
 
             result.Should().BeEquivalentTo(people[0]);
 
-            var expression2 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.Equals).Value("Jane");
+            var expression2 = ExpressionMaker.For<Person>().WithProperty(x => x.Name).When(QueryOperation.Equals).Value("Jane");
         }
 
         public static IEnumerable<object[]> People()

@@ -11,14 +11,14 @@ IEnumerables are not yet supported, but will be soon.
 ## Example
 
 ```csharp
-var expression = ExpressionMaker.For<Person>().On(x => x.Name).Equals("Jane");
+var expression = ExpressionMaker.For<Person>().WithProperty(x => x.Name).Equals("Jane");
 
-var expression2 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.Equals).Value("Jane");
+var expression2 = ExpressionMaker.For<Person>().WithProperty(x => x.Name).When(QueryOperation.Equals).Value("Jane");
 
-var expression3 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.StartsWith).Value("Ja");
+var expression3 = ExpressionMaker.For<Person>().WithProperty(x => x.Name).When(QueryOperation.StartsWith).Value("Ja");
 
-var expression4 = ExpressionMaker.For<Person>().On(x => x.Name).When(QueryOperation.Contains).Value("a");
+var expression4 = ExpressionMaker.For<Person>().WithProperty(x => x.Name).When(QueryOperation.Contains).Value("a");
 
-var expression5 = ExpressionMaker.For<Person>().On(x => x.Age).When(QueryOperation.LessThan).Value(18);
+var expression5 = ExpressionMaker.For<Person>().WithProperty(x => x.Age).When(QueryOperation.LessThan).Value(18);
 
 ```

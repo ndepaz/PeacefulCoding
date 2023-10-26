@@ -23,8 +23,24 @@ namespace CoolFluentHelpers
         {
 
         }
-
+        /// <summary>
+        /// It has the same behaviour as WithProperty just different name to sound a bit more natural
+        /// Use WithProperty instead.
+        /// </summary>
+        /// <typeparam name="ModelPropValue"></typeparam>
+        /// <param name="property"></param>
+        /// <returns></returns>
         public ExpressionBuilderProperty<T, ModelPropValue> On<ModelPropValue>(Expression<Func<T, ModelPropValue>> property)
+        {
+            return new ExpressionBuilderProperty<T, ModelPropValue>(property);
+        }
+        /// <summary>
+        /// Used to start building the expression for a given property.
+        /// </summary>
+        /// <typeparam name="ModelPropValue"></typeparam>
+        /// <param name="property"></param>
+        /// <returns></returns>
+        public ExpressionBuilderProperty<T, ModelPropValue> WithProperty<ModelPropValue>(Expression<Func<T, ModelPropValue>> property)
         {
             return new ExpressionBuilderProperty<T, ModelPropValue>(property);
         }

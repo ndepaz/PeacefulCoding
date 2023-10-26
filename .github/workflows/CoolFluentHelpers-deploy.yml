@@ -1,0 +1,45 @@
+name: CoolFluentHelpers NuGet Deploy
+on:
+  release:
+    types:
+      - created
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '6.x.x'  # Replace x with the desired version number
+
+    - name: Get Release Tag Version
+      id: get_release_version
+      run: echo "::set-output name=version::${GITHUB_REF##*/}"
+
+    - name: Update Project Version
+      run: |
+        sed -i "s|<VersionPlaceholder>.*</VersionPlaceholder>|<VersionPlaceholder>${{ steps.get_release_version.outputs.version }}</VersionPlaceholder>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
+
+    - name: Build and pack
+      run: |
+        dotnet build --configuration Release
+        dotnet pack --configuration Release
+
+    - name: Find NuGet package
+      id: find_package
+      run: |
+        find . -name '*.nupkg' -print0 | xargs -0 echo "::set-output name=package_path::"
+
+    - name: Publish NuGet package
+      uses: nuget/nuget-setapikey@v1
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      with:
+        nuget-api-key: ${{ secrets.NUGET_API_KEY }}
+        nuget-package: ${{ steps.find_package.outputs.package_path }}
+        nuget-feed-url: 'https://api.nuget.org/v3/index.json'
