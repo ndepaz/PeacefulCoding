@@ -10,7 +10,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
@@ -23,7 +23,7 @@ jobs:
 
     - name: Update Project Version
       run: |
-        sed -i "s|<VersionPlaceholder>.*</VersionPlaceholder>|<VersionPlaceholder>${{ steps.get_release_version.outputs.version }}</VersionPlaceholder>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
+        sed -i "s|<PackageTags>.*</PackageTags>|<PackageTags>${{ steps.get_release_version.outputs.version }}</PackageTags>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
 
     - name: Build and pack
       run: |
