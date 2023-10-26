@@ -27,7 +27,7 @@ jobs:
 
     - name: Update Project Version without prefix v
       run: |
-        sed -i "s|<PackageTags>.*</PackageTags>|<PackageTags>${{ env.version:1}}</PackageTags>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
+        sed -i "s|<Version>.*</Version>|<Version>${{ env.version#v}}</Version>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
 
     - name: output CoolFluentHelpers.csproj
       run: cat $(find . -type f -iname 'CoolFluentHelpers.csproj')
