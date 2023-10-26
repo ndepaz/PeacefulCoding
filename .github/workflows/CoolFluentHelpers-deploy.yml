@@ -44,7 +44,8 @@ jobs:
       - name: Find NuGet package
         id: find_package
         run: |
-          find . -name '*.nupkg' -print0 | xargs -0 echo "package_path=${}" >> $GITHUB_ENV
+          package_path=$(find . -type f -iname 'CoolFluentHelpers.*.nupkg')
+          echo "package_path=${package_path}" >> $GITHUB_ENV
 
       - name: Publish NuGet package
         run: |
