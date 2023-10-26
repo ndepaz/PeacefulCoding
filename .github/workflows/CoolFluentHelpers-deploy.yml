@@ -36,10 +36,5 @@ jobs:
         find . -name '*.nupkg' -print0 | xargs -0 echo "::set-output name=package_path::"
 
     - name: Publish NuGet package
-      uses: nuget/nuget-setapikey@v1
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-      with:
-        nuget-api-key: ${{ secrets.NUGET_API_KEY }}
-        nuget-package: ${{ steps.find_package.outputs.package_path }}
-        nuget-feed-url: 'https://api.nuget.org/v3/index.json'
+      run: |
+        dotnet nuget push ${{ steps.find_package.outputs.package_path }} --api-key "${{ secrets.NUGET_API_KEY }}" --source https://api.nuget.org/v3/index.json
