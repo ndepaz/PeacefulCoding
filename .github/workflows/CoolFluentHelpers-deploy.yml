@@ -27,7 +27,8 @@ jobs:
 
     - name: Update Project Version without prefix v
       run: |
-        sed -i "s|<Version>.*</Version>|<Version>${{ env.version#v }}</Version>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
+        echo "versionMinusV=${env.version:1}" >> $GITHUB_ENV
+        sed -i "s|<Version>.*</Version>|<Version>${{ env.versionMinusV }}</Version>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
 
     - name: output CoolFluentHelpers.csproj
       run: cat $(find . -type f -iname 'CoolFluentHelpers.csproj')
