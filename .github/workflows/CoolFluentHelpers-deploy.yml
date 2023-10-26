@@ -20,12 +20,12 @@ jobs:
       - name: Get Release Tag Version
         id: get_release_version
         run: |
-          version=$(echo "${{ github.ref }}" | cut -c11-)
+          version=$(echo "${{ github.ref }}" | cut -c12-)
           echo "version=${version}" >> $GITHUB_ENV
 
       - name: Update Project Version without prefix v
         run: |
-          versionMinusV=$(echo "${{ env.version }}" | cut -c2-)
+          versionMinusV=$(echo "${{ env.version }}")
           echo "versionMinusV=${versionMinusV}" >> $GITHUB_ENV
           sed -i "s|<Version>.*</Version>|<Version>${versionMinusV}</Version>|" $(find . -type f -iname 'CoolFluentHelpers.csproj')
 
