@@ -83,7 +83,7 @@ namespace CoolFluentHelpers
             return _criteria;
         }
 
-        public Result<Expression<Func<Model,bool>>> ThenUseExpression(QueryOperation queryOperation, Property value)
+        public IResult<Expression<Func<Model,bool>>> ThenUseExpression(QueryOperation queryOperation, Property value)
         {
             if (!MeetsCriteria())
             {
@@ -136,7 +136,7 @@ namespace CoolFluentHelpers
             return this;
         }
 
-        public Result<Expression<Func<Model, bool>>> AsExpression()
+        public IResult<Expression<Func<Model, bool>>> AsExpression()
         {
             if (_andBooleanExpression == null && _orBooleanExpression == null)
                 return Result.Failure<Expression<Func<Model, bool>>>("There are no expressions to use");
@@ -224,7 +224,7 @@ namespace CoolFluentHelpers
             return expressionMakerField;
         }
 
-        public Result<ExpressionMakerField<Model, Property>> FindBy(string displayName)
+        public IResult<ExpressionMakerField<Model, Property>> FindBy(string displayName)
         {
             if (!_expressionsMakerFields.ContainsKey(displayName))
                 return Result.Failure<ExpressionMakerField<Model, Property>>($"Field {displayName} not found");
