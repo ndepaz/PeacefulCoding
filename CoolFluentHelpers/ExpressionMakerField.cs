@@ -237,5 +237,22 @@ namespace CoolFluentHelpers
         {
             return _expressionsMakerFields.Values.ToList();
         }
+
+        public IReadOnlyList<Expression<Func<Model, bool>>> GetValidExpressions(){
+            
+            var validExpressions = new List<Expression<Func<Model, bool>>>();
+
+            foreach (var field in ToList())
+            {
+                var result = field.AsExpression();
+
+                if (result.IsSuccess)
+                {
+                    validExpressions.Add(result.Value);
+                }
+            }
+
+            return validExpressions;
+        }
     }
 }
