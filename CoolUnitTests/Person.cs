@@ -15,6 +15,7 @@ namespace CoolUnitTests
         public string Name { get; set; }
         public DateTime Born { get; set; }
         public int Age => CalculateAge(Born);
+        public int FavoriteNumber { get; set; }
         public static int CalculateAge(DateTime birthdate)
         {
             int age = DateTime.Today.Year - birthdate.Year;
@@ -27,12 +28,12 @@ namespace CoolUnitTests
             return age;
         }
 
-        public List<Person> _relatives => new();
-        public IReadOnlyList<Person> Relatives { get; set; }
+        private List<Person> _family = new();
+        public IReadOnlyList<Person> Familiy => _family.AsReadOnly();
 
-        public void AddRelative(params Person[] people)
+        public void AddFamily(params Person[] people)
         {
-            _relatives.AddRange(people);
+            _family.AddRange(people);
         }
     }
 
