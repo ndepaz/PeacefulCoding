@@ -43,7 +43,11 @@ namespace CoolUnitTests
 
             var exp2 = expWithProp.ThenUseExpression(QueryOperation.Equals, 7);
 
-            var list = people.AsQueryable().Where(expWithProp.AsExpression()).ToList();
+            var result = expWithProp.AsExpression();
+
+            result.IsSuccess.Should().BeTrue();
+
+            var list = people.AsQueryable().Where(result.Value).ToList();
 
             list.Should().NotBeEmpty();
         }
@@ -123,7 +127,39 @@ namespace CoolUnitTests
 
             foreach (var field in fieldList.ToList())
             {
-                var queryResult = people.AsQueryable().Where(field.AsExpression()).ToList();
+                var result = field.AsExpression();
+
+                result.IsSuccess.Should().BeTrue();
+
+                var queryResult = people.AsQueryable().Where(result.Value).ToList();
+
+                queryResult.Should().NotBeEmpty();
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(PeopleWithAge))]
+        public void Bind_through_list_test_with_and_clause_result(List<Person> people,QueryOperation operation, int age)
+        {
+            var fields = new List<ExpressionMakerField<Person, int>>();
+
+
+            var fieldList = ModelFieldList<Person, int>.Create();
+
+            fieldList.Bind(x=>x.Age,"Age")
+                .WithAndExpression(operation,age);
+            
+            fieldList.Bind(x=>x.FavoriteNumber,"Favorite #")
+                .WithAndExpression(QueryOperation.LessThanOrEqual,100)
+                .WithAndExpression(QueryOperation.GreaterThan,0);
+
+            foreach (var field in fieldList.ToList())
+            {
+                var result = field.AsExpression();
+
+                result.IsSuccess.Should().BeTrue();
+
+                var queryResult = people.AsQueryable().Where(result.Value).ToList();
 
                 queryResult.Should().NotBeEmpty();
             }
@@ -144,7 +180,11 @@ namespace CoolUnitTests
 
             foreach (var field in fieldList.ToList())
             {
-                var queryResult = people.AsQueryable().Where(field.AsExpression()).ToList();
+                var result = field.AsExpression();
+
+                result.IsSuccess.Should().BeTrue();
+
+                var queryResult = people.AsQueryable().Where(result.Value).ToList();
 
                 queryResult.Should().NotBeEmpty();
             }
