@@ -256,17 +256,4 @@ namespace CoolFluentHelpers
             return GetPropertyPathCore(expr);
         }
     }
-
-    public enum QueryOperation
-    {
-
-        StartsWith,
-        EndsWith,
-        Contains,
-        Equals,
-        LessThan,
-        LessThanOrEqual,
-        GreaterThan,
-        GreaterThanOrEqual,
-    }
 }

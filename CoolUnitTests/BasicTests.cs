@@ -3,6 +3,7 @@ using FluentAssertions;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -148,6 +149,35 @@ namespace CoolUnitTests
 
                 queryResult.Should().NotBeEmpty();
             }
+        }
+
+        [Theory]
+        [MemberData(nameof(People))]
+        public void Equals_Equivalent2(List<Person> people)
+        {
+            var builder = ExpressionBuilder<Person>.Create();
+
+            var expression2 = builder.Compare(x=>x.Age,
+                AsQuery.Number<int>(QueryNumberOperation.GreaterThan),18);
+            
+            Expression<Func<Person, bool>> expression3 = x => x.Age > 18;
+            
+            //expression2.Should().BeEquivalentTo(expression3);
+
+            //var fav1 = builder.Compare(x => x.FavoriteNumber,
+            //    AsQuery.Number(QueryNumberOperation.GreaterThan), 18);
+
+            //Expression<Func<Person, bool>> fav2 = x => x.FavoriteNumber > 18;
+
+            //fav1.Should().BeEquivalentTo(fav2);
+
+            var expression = builder.Compare(x => x.Name,
+                AsQuery.String(QueryStringOperation.Equals), "Jane");
+
+            var result = people.AsQueryable().FirstOrDefault(expression);
+
+            result.Should().BeEquivalentTo(people[0]);
+
         }
     }
 
