@@ -37,9 +37,9 @@ namespace CoolUnitTests
             var fields = new List<ExpressionMakerField<Person, int>>();
 
 
-            var fieldList = ModelFieldList<Person, int>.Create();
+            var fieldList = ModelFieldList<Person, int?>.Create();
             var expWithProp = fieldList.Bind(x => x.FavoriteNumber, "Favorite #");
-            
+
             var exp = expWithProp.ThenUseExpression(QueryOperation.Equals, 7);
 
             var exp2 = expWithProp.ThenUseExpression(QueryOperation.Equals, 7);
@@ -63,7 +63,7 @@ namespace CoolUnitTests
 
             daughter.FavoriteNumber = 8;
 
-            mom.AddFamily(son,daughter);
+            mom.AddFamily(son, daughter);
 
             var list = new List<Person> { mom, son, daughter };
 
@@ -96,7 +96,7 @@ namespace CoolUnitTests
 
             dad.AddFamily(son, daughter, mom);
 
-            var list = new List<Person> { dad, mom, son, daughter,kiddo };
+            var list = new List<Person> { dad, mom, son, daughter, kiddo };
 
             yield return new object[] { list, QueryOperation.Equals, 30 };
             yield return new object[] { list, QueryOperation.GreaterThan, 15 };
@@ -108,19 +108,19 @@ namespace CoolUnitTests
 
         [Theory]
         [MemberData(nameof(PeopleWithAge))]
-        public void Bind_through_list_test_with_and_clause(List<Person> people,QueryOperation operation, int age)
+        public void Bind_through_list_test_with_and_clause(List<Person> people, QueryOperation operation, int age)
         {
             var fields = new List<ExpressionMakerField<Person, int>>();
 
 
-            var fieldList = ModelFieldList<Person, int>.Create();
+            var fieldList = ModelFieldList<Person, int?>.Create();
 
-            fieldList.Bind(x=>x.Age,"Age")
-                .WithAndExpression(operation,age);
-            
-            fieldList.Bind(x=>x.FavoriteNumber,"Favorite #")
-                .WithAndExpression(QueryOperation.LessThanOrEqual,100)
-                .WithAndExpression(QueryOperation.GreaterThan,0);
+            fieldList.Bind(x => x.Age, "Age")
+                .WithAndExpression(operation, age);
+
+            fieldList.Bind(x => x.FavoriteNumber, "Favorite #")
+                .WithAndExpression(QueryOperation.LessThanOrEqual, 100)
+                .WithAndExpression(QueryOperation.GreaterThan, 0);
 
             foreach (var field in fieldList.ToList())
             {
@@ -137,7 +137,7 @@ namespace CoolUnitTests
             var fields = new List<ExpressionMakerField<Person, int>>();
 
 
-            var fieldList = ModelFieldList<Person, int>.Create();
+            var fieldList = ModelFieldList<Person, int?>.Create();
 
             fieldList.Bind(x => x.FavoriteNumber, "Favorite #")
                 .WithOrExpression(QueryOperation.LessThanOrEqual, 100)
@@ -157,27 +157,24 @@ namespace CoolUnitTests
         {
             var builder = ExpressionBuilder<Person>.Create();
 
-            var expression2 = builder.Compare(x=>x.Age,
-                AsQuery.Number<int>(QueryNumberOperation.GreaterThan),18);
+            var expression = builder.ForProperty(x => x.FavoriteNumber)
+                .Compare(
+                    AsQuery.NullableValue<int>(QueryNumber.GreaterThan)
+                )
+                .WithValue(18);
+
+            Expression<Func<Person, bool>> expression2 = x => x.Age > 18;
+
+            expression.Should().BeEquivalentTo(expression2);
+
+            var expression3 = builder.ForProperty(x => x.FavoriteNumber)
+                .Compare(QueryOperation.GreaterThan)
+                .WithValue(18);
+
+            Expression<Func<Person, bool>> expression4 = x => x.FavoriteNumber > 18;
+
+            expression3.Should().BeEquivalentTo(expression4);
             
-            Expression<Func<Person, bool>> expression3 = x => x.Age > 18;
-            
-            //expression2.Should().BeEquivalentTo(expression3);
-
-            //var fav1 = builder.Compare(x => x.FavoriteNumber,
-            //    AsQuery.Number(QueryNumberOperation.GreaterThan), 18);
-
-            //Expression<Func<Person, bool>> fav2 = x => x.FavoriteNumber > 18;
-
-            //fav1.Should().BeEquivalentTo(fav2);
-
-            var expression = builder.Compare(x => x.Name,
-                AsQuery.String(QueryStringOperation.Equals), "Jane");
-
-            var result = people.AsQueryable().FirstOrDefault(expression);
-
-            result.Should().BeEquivalentTo(people[0]);
-
         }
     }
 

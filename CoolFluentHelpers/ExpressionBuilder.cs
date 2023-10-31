@@ -1,32 +1,16 @@
-﻿using Microsoft.VisualBasic;
+﻿using CSharpFunctionalExtensions;
+using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
 namespace CoolFluentHelpers
 {
-    public class ExpressionBuilder<T>
-    {
-        private ExpressionBuilder()
-        {
-
-        }
-
-        public static ExpressionBuilder<T> Create()
-        {
-            return new ExpressionBuilder<T>();
-        }
-
-        public Expression<Func<T, bool>> Compare<TValue>(Expression<Func<T, TValue>> propertyExpression, AsQuery<TValue> operation, TValue value)
-        {
-            return ExpressionBuilder.BuildPredicate(propertyExpression, operation.Get(), value);
-        }
-    }
-
     public enum QueryOperation
     {
 
@@ -39,7 +23,7 @@ namespace CoolFluentHelpers
         GreaterThan,
         GreaterThanOrEqual,
     }
-    public enum QueryStringOperation
+    public enum QueryString
     {
 
         StartsWith,
@@ -48,7 +32,7 @@ namespace CoolFluentHelpers
         Equals,
     }
 
-    public enum QueryNumberOperation
+    public enum QueryNumber
     {
         Equals,
         LessThan,
@@ -57,7 +41,7 @@ namespace CoolFluentHelpers
         GreaterThanOrEqual,
     }
 
-    public enum QueryDateOperation
+    public enum QueryDate
     {
         Equals,
         LessThan,
@@ -66,9 +50,112 @@ namespace CoolFluentHelpers
         GreaterThanOrEqual,
     }
 
-    public enum QueryBoolOperation
+    public enum QueryBool
     {
         Equals,
+    }
+
+    public class ExpressionBuilder<T>
+    {
+        private ExpressionBuilder()
+        {
+
+        }
+
+        public static ExpressionBuilder<T> Create()
+        {
+            return new ExpressionBuilder<T>();
+        }
+
+        public ExpressionComparison<T, TValue> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression)
+            where TValue : struct
+        {
+            return ExpressionComparison<T, TValue>.Create(propertyExpression);
+        }
+
+        public ExpressionComparison<T, TValue?> ForProperty<TValue>(Expression<Func<T, TValue?>> propertyExpression)
+            where TValue : struct
+        {
+            return ExpressionComparison<T, TValue?>.Create(propertyExpression);
+        }
+    }
+
+    public class ExpressionComparison<T, TValue>
+    {
+        private AsQuery<TValue> AsQuery { get; }
+        private Expression<Func<T, TValue>> PropertyExpression { get; }
+
+        private readonly QueryOperation _queryOperation;
+        private Expression<Func<T, bool>> _expression;
+
+        private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression)
+        {
+            PropertyExpression = propertyExpression;
+        }
+
+        private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, AsQuery<TValue> asQuery)
+        {
+            PropertyExpression = propertyExpression;
+            AsQuery = asQuery;
+        }
+
+        private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, QueryOperation queryOperation)
+        {
+            PropertyExpression = propertyExpression;
+            _queryOperation = queryOperation;
+        }
+
+        internal static ExpressionComparison<T, TValue> Create(Expression<Func<T, TValue>> propertyExpression)
+        {
+            return new ExpressionComparison<T, TValue>(propertyExpression);
+        }
+
+        private static ExpressionComparison<T, TValue> Create(Expression<Func<T, TValue>> propertyExpression, AsQuery<TValue> asQuery)
+        {
+            return new ExpressionComparison<T, TValue>(propertyExpression, asQuery);
+        }
+
+        private ExpressionComparison<T, TValue> UnsafeCreate(Expression<Func<T, TValue>> propertyExpression, QueryOperation asQuery)
+        {
+            return new ExpressionComparison<T, TValue>(propertyExpression, asQuery);
+        }
+
+        public ExpressionComparison<T, TValue> Compare(QueryOperation queryOperation)
+        {
+            return UnsafeCreate(PropertyExpression, queryOperation);
+        }
+
+        public ExpressionComparison<T, TValue> Compare(AsQuery<TValue> asQuery)
+        {
+            return Create(PropertyExpression, asQuery);
+        }
+
+        public ExpressionComparison<T, TValue> WithValue(TValue value)
+        {
+            if (AsQuery != null)
+            {
+                _expression = ExpressionBuilder.BuildPredicate(PropertyExpression, AsQuery.Get(), value);
+            }
+            else
+            {
+                _expression = ExpressionBuilder.BuildPredicate(PropertyExpression, _queryOperation, value);
+            }
+
+            return this;
+        }
+
+        public IResult<Expression<Func<T, bool>>> AsExpression()
+        {
+            return Result.Success(_expression);
+        }
+    }
+
+    internal static class ExpresssionComparisonExt {
+
+        internal static List<ExpressionComparison<T, TValue>> CreateList<T, TValue>( this ExpressionComparison<T, TValue> expressionComparison)
+        {
+            return new List<ExpressionComparison<T, TValue>> { expressionComparison };
+        }
     }
 
     public class AsQuery
@@ -78,22 +165,27 @@ namespace CoolFluentHelpers
             QueryOperation = queryOperation;
         }
 
-        public static AsQuery<string> String(QueryStringOperation operation)
+        public static AsQuery<string> String(QueryString operation)
         {
             return AsQuery<string>.String<string>(operation);
         }
 
-        public static AsQuery<TValue> Number<TValue>(QueryNumberOperation operation) where TValue : INumber<TValue>
+        public static AsQuery<TValue> Number<TValue>(QueryNumber operation) where TValue : INumber<TValue>
         {
             return AsQuery<TValue>.Number<TValue>(operation);
         }
 
-        public static AsQuery<DateTime> Date(QueryDateOperation operation)
+        public static AsQuery<TValue?> NullableValue<TValue>(QueryNumber operation) where TValue : struct
+        {
+            return AsQuery<TValue?>.NullableValue<TValue>(operation);
+        }
+
+        public static AsQuery<DateTime> Date(QueryDate operation)
         {
             return AsQuery<DateTime>.Date<DateTime>(operation);
         }
 
-        public static AsQuery<bool> Bool(QueryBoolOperation operation)
+        public static AsQuery<bool> Bool(QueryBool operation)
         {
             return AsQuery<bool>.Bool<bool>(operation);
         }
@@ -103,42 +195,61 @@ namespace CoolFluentHelpers
             return QueryOperation;
         }
     }
+    //public class ModelPropertyList<Model>
+    //{
 
-    public class AsQuery<T> : AsQuery
-    {
-        private AsQuery(QueryOperation queryOperation) : base(queryOperation)
-        {
-        }
-        
-        public static AsQuery<string> String<TValue>(QueryStringOperation operation) where TValue : class
-        {
-            return new AsQuery<string>(QueryOperationConverter.Convert(operation));
-        }
+    //}
+    //public class ModelPropertyList<Model, Property>
+    //{
+    //    private Dictionary<string, ExpressionMakerField<Model, Property>> _expressionsMakerFields = new();
 
-        public static AsQuery<TValue> Number<TValue>(QueryNumberOperation operation) where TValue : INumber<TValue>
-        {
-            return new AsQuery<TValue>(QueryOperationConverter.Convert(operation));
-        }
+    //    public static ModelPropertyList<Model, Property> Create(ExpressionMakerField<Model, Property> expressionMakerField = null)
+    //    {
+    //        return new ModelPropertyList<Model, Property>().Add(expressionMakerField);
+    //    }
 
-        public static AsQuery<DateTime> Date<TValue>(QueryDateOperation operation) where TValue : struct
-        {
-            return new AsQuery<DateTime>(QueryOperationConverter.Convert(operation));
-        }
 
-        public static AsQuery<DateTime?> Date(QueryDateOperation operation)
-        {
-            return new AsQuery<DateTime?>(QueryOperationConverter.Convert(operation));
-        }
+    //    public ModelPropertyList<Model, Property> Add(ExpressionMakerField<Model, Property> expressionMakerField)
+    //    {
+    //        if (expressionMakerField == null)
+    //            return this;
 
-        public static AsQuery<bool> Bool<TValue>(QueryBoolOperation operation) where TValue : struct
-        {
-            return new AsQuery<bool>(QueryOperationConverter.Convert(operation));
-        }
+    //        _expressionsMakerFields.Add(expressionMakerField.DisplayName, expressionMakerField);
 
-        public static AsQuery<bool?> Bool(QueryBoolOperation operation)
-        {
-            return new AsQuery<bool?>(QueryOperationConverter.Convert(operation));
-        }
+    //        return this;
+    //    }
 
-    }
+    //    public ModelPropertyList<Model, Property> AddRange(params ExpressionMakerField<Model, Property>[] expressionMakerFields)
+    //    {
+    //        foreach (var expressionMakerField in expressionMakerFields)
+    //        {
+    //            Add(expressionMakerField);
+    //        }
+
+    //        return this;
+    //    }
+
+    //    public ExpressionMakerField<Model, Property> Bind(Expression<Func<Model, Property>> expression, string displayName, params QueryOperation[] queryOperations)
+    //    {
+    //        var expressionMakerField = ExpressionMakerField<Model, Property>.Bind(expression, displayName, queryOperations);
+
+    //        AddRange(expressionMakerField);
+
+    //        return expressionMakerField;
+    //    }
+
+    //    public Result<ExpressionMakerField<Model, Property>> FindBy(string displayName)
+    //    {
+    //        if (!_expressionsMakerFields.ContainsKey(displayName))
+    //            return Result.Failure<ExpressionMakerField<Model, Property>>($"Field {displayName} not found");
+
+    //        return Result.Success(_expressionsMakerFields[displayName]);
+
+    //    }
+
+    //    public IReadOnlyList<ExpressionMakerField<Model, Property>> ToList()
+    //    {
+    //        return _expressionsMakerFields.Values.ToList();
+    //    }
+    //}
 }

@@ -3,49 +3,49 @@
     internal static class QueryOperationConverter
     {
 
-        internal static QueryOperation Convert(QueryStringOperation operation)
+        internal static QueryOperation Convert(QueryString operation)
         {
             return operation switch
             {
-                QueryStringOperation.StartsWith => QueryOperation.StartsWith,
-                QueryStringOperation.EndsWith => QueryOperation.EndsWith,
-                QueryStringOperation.Contains => QueryOperation.Contains,
-                QueryStringOperation.Equals => QueryOperation.Equals,
+                QueryString.StartsWith => QueryOperation.StartsWith,
+                QueryString.EndsWith => QueryOperation.EndsWith,
+                QueryString.Contains => QueryOperation.Contains,
+                QueryString.Equals => QueryOperation.Equals,
                 _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
             };
         }
 
-        internal static QueryOperation Convert(QueryNumberOperation operation)
+        internal static QueryOperation Convert(QueryNumber operation)
         {
             return operation switch
             {
-                QueryNumberOperation.Equals => QueryOperation.Equals,
-                QueryNumberOperation.LessThan => QueryOperation.LessThan,
-                QueryNumberOperation.LessThanOrEqual => QueryOperation.LessThanOrEqual,
-                QueryNumberOperation.GreaterThan => QueryOperation.GreaterThan,
-                QueryNumberOperation.GreaterThanOrEqual => QueryOperation.GreaterThanOrEqual,
+                QueryNumber.Equals => QueryOperation.Equals,
+                QueryNumber.LessThan => QueryOperation.LessThan,
+                QueryNumber.LessThanOrEqual => QueryOperation.LessThanOrEqual,
+                QueryNumber.GreaterThan => QueryOperation.GreaterThan,
+                QueryNumber.GreaterThanOrEqual => QueryOperation.GreaterThanOrEqual,
                 _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
             };
         }
 
-        internal static QueryOperation Convert(QueryDateOperation operation)
+        internal static QueryOperation Convert(QueryDate operation)
         {
             return operation switch
             {
-                QueryDateOperation.Equals => QueryOperation.Equals,
-                QueryDateOperation.LessThan => QueryOperation.LessThan,
-                QueryDateOperation.LessThanOrEqual => QueryOperation.LessThanOrEqual,
-                QueryDateOperation.GreaterThan => QueryOperation.GreaterThan,
-                QueryDateOperation.GreaterThanOrEqual => QueryOperation.GreaterThanOrEqual,
+                QueryDate.Equals => QueryOperation.Equals,
+                QueryDate.LessThan => QueryOperation.LessThan,
+                QueryDate.LessThanOrEqual => QueryOperation.LessThanOrEqual,
+                QueryDate.GreaterThan => QueryOperation.GreaterThan,
+                QueryDate.GreaterThanOrEqual => QueryOperation.GreaterThanOrEqual,
                 _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
             };
         }
 
-        internal static QueryOperation Convert(QueryBoolOperation operation)
+        internal static QueryOperation Convert(QueryBool operation)
         {
             return operation switch
             {
-                QueryBoolOperation.Equals => QueryOperation.Equals,
+                QueryBool.Equals => QueryOperation.Equals,
                 _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
             };
         }

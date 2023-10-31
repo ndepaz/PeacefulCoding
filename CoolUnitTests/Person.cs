@@ -15,7 +15,7 @@ namespace CoolUnitTests
         public string Name { get; set; }
         public DateTime Born { get; set; }
         public int Age => CalculateAge(Born);
-        public int FavoriteNumber { get; set; }
+        public int? FavoriteNumber { get; set; }
         public static int CalculateAge(DateTime birthdate)
         {
             int age = DateTime.Today.Year - birthdate.Year;
