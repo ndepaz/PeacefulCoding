@@ -82,10 +82,10 @@ namespace CoolFluentHelpers
 
     public class ExpressionComparison<T, TValue>
     {
-        private AsQuery<TValue> AsQuery { get; }
-        private Expression<Func<T, TValue>> PropertyExpression { get; }
+        internal Expression<Func<T, TValue>> PropertyExpression { get; }
 
-        private readonly QueryOperation _queryOperation;
+        internal QueryOperation QueryOperation;
+
         private Expression<Func<T, bool>> _expression;
 
         private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression)
@@ -93,16 +93,10 @@ namespace CoolFluentHelpers
             PropertyExpression = propertyExpression;
         }
 
-        private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, AsQuery<TValue> asQuery)
-        {
-            PropertyExpression = propertyExpression;
-            AsQuery = asQuery;
-        }
-
         private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, QueryOperation queryOperation)
         {
             PropertyExpression = propertyExpression;
-            _queryOperation = queryOperation;
+            QueryOperation = queryOperation;
         }
 
         internal static ExpressionComparison<T, TValue> Create(Expression<Func<T, TValue>> propertyExpression)
@@ -110,36 +104,23 @@ namespace CoolFluentHelpers
             return new ExpressionComparison<T, TValue>(propertyExpression);
         }
 
-        private static ExpressionComparison<T, TValue> Create(Expression<Func<T, TValue>> propertyExpression, AsQuery<TValue> asQuery)
+        public ExpressionValue<T, TValue> Compare(QueryOperation queryOperation)
         {
-            return new ExpressionComparison<T, TValue>(propertyExpression, asQuery);
+            QueryOperation = queryOperation;
+
+            return ExpressionValue<T, TValue>.Create(this);
         }
 
-        private ExpressionComparison<T, TValue> UnsafeCreate(Expression<Func<T, TValue>> propertyExpression, QueryOperation asQuery)
+        public ExpressionValue<T, TValue> Compare(AsQuery<TValue> asQuery)
         {
-            return new ExpressionComparison<T, TValue>(propertyExpression, asQuery);
+            QueryOperation = asQuery.Get();
+
+            return ExpressionValue<T,TValue>.Create(this);
         }
 
-        public ExpressionComparison<T, TValue> Compare(QueryOperation queryOperation)
+        internal ExpressionComparison<T, TValue> SetExpression(Expression<Func<T, bool>> expression)
         {
-            return UnsafeCreate(PropertyExpression, queryOperation);
-        }
-
-        public ExpressionComparison<T, TValue> Compare(AsQuery<TValue> asQuery)
-        {
-            return Create(PropertyExpression, asQuery);
-        }
-
-        public ExpressionComparison<T, TValue> WithValue(TValue value)
-        {
-            if (AsQuery != null)
-            {
-                _expression = ExpressionBuilder.BuildPredicate(PropertyExpression, AsQuery.Get(), value);
-            }
-            else
-            {
-                _expression = ExpressionBuilder.BuildPredicate(PropertyExpression, _queryOperation, value);
-            }
+            _expression = expression;
 
             return this;
         }
@@ -147,6 +128,37 @@ namespace CoolFluentHelpers
         public IResult<Expression<Func<T, bool>>> AsExpression()
         {
             return Result.Success(_expression);
+        }
+    }
+    public class ExpressionValue<T, TValue>
+    {
+        private ExpressionValue(ExpressionComparison<T, TValue> expressionComparison)
+        {
+            _expressionComparison = expressionComparison;
+        }
+
+        private ExpressionComparison<T, TValue> _expressionComparison { get; }
+
+        internal static ExpressionValue<T, TValue> Create(ExpressionComparison<T, TValue> expressionComparison)
+        {
+            return new ExpressionValue<T, TValue>(expressionComparison);
+        }
+
+        public ExpressionComparison<T, TValue> WithValue(TValue value)
+        {
+            return _expressionComparison.WithValue(value);
+        }
+    }
+
+    internal static class ExpressionValueExt
+    {
+        internal static ExpressionComparison<T, TValue> WithValue<T, TValue>(this ExpressionComparison<T,TValue> expressionComparison,TValue value)
+        {
+            var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, value);
+            
+            expressionComparison.SetExpression(expression);
+            
+            return expressionComparison;
         }
     }
 
@@ -172,7 +184,7 @@ namespace CoolFluentHelpers
 
         public static AsQuery<TValue> Number<TValue>(QueryNumber operation) where TValue : INumber<TValue>
         {
-            return AsQuery<TValue>.Number<TValue>(operation);
+            return AsQuery<TValue>.Numeric<TValue>(operation);
         }
 
         public static AsQuery<TValue?> NullableValue<TValue>(QueryNumber operation) where TValue : struct

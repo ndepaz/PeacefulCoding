@@ -157,11 +157,12 @@ namespace CoolUnitTests
         {
             var builder = ExpressionBuilder<Person>.Create();
 
-            var expression = builder.ForProperty(x => x.FavoriteNumber)
+            var expression = builder.ForProperty(x => x.Age)
                 .Compare(
-                    AsQuery.NullableValue<int>(QueryNumber.GreaterThan)
+                    AsQuery.Number<int>(QueryNumber.GreaterThan)
                 )
-                .WithValue(18);
+                .WithValue(18)
+                .AsExpression().Value;
 
             Expression<Func<Person, bool>> expression2 = x => x.Age > 18;
 
@@ -169,7 +170,8 @@ namespace CoolUnitTests
 
             var expression3 = builder.ForProperty(x => x.FavoriteNumber)
                 .Compare(QueryOperation.GreaterThan)
-                .WithValue(18);
+                .WithValue(18)
+                .AsExpression().Value;
 
             Expression<Func<Person, bool>> expression4 = x => x.FavoriteNumber > 18;
 
