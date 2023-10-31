@@ -170,7 +170,7 @@ namespace CoolUnitTests
 
             var expression3 = builder.ForProperty(x => x.FavoriteNumber)
                 .Compare(QueryOperation.GreaterThan)
-                .WithValue(18)
+                .WithAnyValue(18)
                 .AsExpression().Value;
 
             Expression<Func<Person, bool>> expression4 = x => x.FavoriteNumber > 18;

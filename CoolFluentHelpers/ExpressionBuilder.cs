@@ -148,6 +148,16 @@ namespace CoolFluentHelpers
         {
             return _expressionComparison.WithValue(value);
         }
+
+        /// <summary>
+        /// Performs a cast to TValue and uses the WithValue
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public ExpressionComparison<T, TValue> WithAnyValue(object value)
+        {
+            return WithValue((TValue)value);
+        }
     }
 
     internal static class ExpressionValueExt
