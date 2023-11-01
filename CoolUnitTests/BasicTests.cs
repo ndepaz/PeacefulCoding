@@ -280,9 +280,9 @@ namespace CoolUnitTests
 
             var asExpression = expressionComparison.GetType().GetMethod("AsExpression");
 
-            //final assert
-
             var expressionResult = (Result<Expression<Func<Person, bool>>>) asExpression.Invoke(expressionComparison, null);
+            
+            //final assert
 
             expressionResult.IsSuccess.Should().BeTrue();
 
