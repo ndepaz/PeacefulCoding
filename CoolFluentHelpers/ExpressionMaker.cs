@@ -177,6 +177,11 @@ namespace CoolFluentHelpers
 
         private static Result<MethodInfo> GetMethod(Type propertyType, QueryOperation operation)
         {
+            if(propertyType != typeof(string))
+            {
+                return Result.Failure<MethodInfo>($"Operation {operation} is not supported");
+            }
+
             MethodInfo method = operation switch
             {
                 QueryOperation.StartsWith => propertyType.GetMethod("StartsWith", new[] { propertyType }),
