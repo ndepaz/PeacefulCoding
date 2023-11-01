@@ -170,7 +170,7 @@ namespace CoolUnitTests
             expression.Should().BeEquivalentTo(expression2);
 
             var expression3 = builder.ForProperty(x => x.FavoriteNumber, "Favorite Number #")
-                .UnsafeCompare(QueryOperation.GreaterThan)
+                .Compare(QueryOperation.GreaterThan)
                 .WithAnyValue(18)
                 .AsExpression().Value;
 
@@ -231,7 +231,7 @@ namespace CoolUnitTests
                 .ForProperty(x => x.Age, "Age");
 
             var expression = agePropertyExp
-                .UnsafeCompare(queryOperation)
+                .Compare(queryOperation)
                 .WithValue(value)
                 .AsExpression().Value;
 
@@ -246,22 +246,31 @@ namespace CoolUnitTests
         [MemberData(nameof(PeopleWithDiffAge))]
         public void we_can_find_and_evaluate_a_property(List<Person> people, QueryOperation queryOperation, object value, Expression<Func<Person, bool>> expectedExpression)
         {
+            //arrange
             var builder = ExpressionBuilder<Person>.Create();
             var agePropertyExp = builder
                 .ForProperty(x => x.Age, "Age");
-
-            var propertyName = "Age";
-            var valueType = typeof(int);
+            
+            var propertyDisplayName = "Age";
+            
+            var valueType = value.GetType();
 
             var getPropertiesMethod = builder.GetType()
-                .GetMethod("GetPropertiesByDisplayname")
+                .GetMethods().First(x => x.Name == "GetProperties" && x.GetParameters().All(p=>p.ParameterType == typeof(string)))
                 .MakeGenericMethod(valueType);
 
-            var properties = (IEnumerable<object>)getPropertiesMethod.Invoke(builder, new object[] { propertyName });
+            var properties = (IEnumerable<object>)getPropertiesMethod.Invoke(builder, new object[] { propertyDisplayName });
+            
             var foundProperty = properties.FirstOrDefault();
 
+            //assert
+            
+            agePropertyExp.Should().Be(foundProperty);
+            
+            //arrange
+
             var compareMethod = foundProperty.GetType()
-                .GetMethod("UnsafeCompare");
+                .GetMethod("Compare",new Type[] { queryOperation.GetType() });
 
             var expressionValue = compareMethod.Invoke(foundProperty, new object[] { queryOperation });
 
@@ -271,7 +280,11 @@ namespace CoolUnitTests
 
             var asExpression = expressionComparison.GetType().GetMethod("AsExpression");
 
-            Result< Expression < Func<Person, bool> >> expressionResult = (Result<Expression<Func<Person, bool>>>) asExpression.Invoke(expressionComparison, null);
+            //final assert
+
+            var expressionResult = (Result<Expression<Func<Person, bool>>>) asExpression.Invoke(expressionComparison, null);
+
+            expressionResult.IsSuccess.Should().BeTrue();
 
             var normalResult = people.AsQueryable().Where(expectedExpression);
 

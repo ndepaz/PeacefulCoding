@@ -55,38 +55,58 @@ namespace CoolFluentHelpers
         Equals,
     }
 
-    internal class DisplayObjectAndType : IEquatable<DisplayObjectAndType>
+    public class PropertyDisplayNameAndType : IEquatable<PropertyDisplayNameAndType>
     {
-        private DisplayObjectAndType(object obj, Type type, string displayName)
+        protected PropertyDisplayNameAndType(string displayName, Type type)
         {
-            Obj = obj;
-            Type = type;
             DisplayName = displayName;
+            Type = type;
         }
 
-        public readonly string DisplayName;
-        public object Obj { get; }
+        public string DisplayName { get; }
         public Type Type { get; }
 
-        public static DisplayObjectAndType Create(object obj, Type type, string displayName)
+        public static PropertyDisplayNameAndType Create(string displayName, Type type)
         {
-            return new DisplayObjectAndType(obj, type, displayName);
+            return new PropertyDisplayNameAndType(displayName, type);
         }
 
-        //When DisplayName and Object and Type are equal, then they are equal
-        public bool Equals(DisplayObjectAndType other)
+        //When DisplayName and Type are equal, then they are equal
+        public bool Equals(PropertyDisplayNameAndType other)
+        {
+            if (other is null)
+                return false;
+
+            return DisplayName == other.DisplayName && Type == other.Type;
+        }
+
+    }
+
+    internal class PropertyDisplayObjectAndType : PropertyDisplayNameAndType,IEquatable<PropertyDisplayObjectAndType>
+    {
+        private PropertyDisplayObjectAndType(object obj, Type type, string displayName) : base(displayName, type)
+        {
+            Obj = obj;
+        }
+        public object Obj { get; }
+
+        public static PropertyDisplayObjectAndType Create(object obj, Type type, string displayName)
+        {
+            return new PropertyDisplayObjectAndType(obj, type, displayName);
+        }
+
+        public bool Equals(PropertyDisplayObjectAndType other)
         {
             if (other is null)
                 return false;
 
             return DisplayName == other.DisplayName && Obj == other.Obj && Type == other.Type;
         }
-
     }
 
     public class ExpressionBuilder<T>
     {
-        private List<DisplayObjectAndType> _expressionComparison = new();
+        private List<PropertyDisplayObjectAndType> _expressionComparison = new();
 
         public string DisplayName;
 
@@ -104,12 +124,12 @@ namespace CoolFluentHelpers
         {
             var expressionComparison = ExpressionComparison<T, TValue>.Create(propertyExpression);
 
-            _expressionComparison.Add(DisplayObjectAndType.Create(expressionComparison, expressionComparison.GetType(), displayName));
+            _expressionComparison.Add(PropertyDisplayObjectAndType.Create(expressionComparison, expressionComparison.GetType(), displayName));
 
             return expressionComparison;
         }
 
-        public IReadOnlyList<ExpressionComparison<T, TValue>> GetPropertiesByDisplayname<TValue>(string displayName)
+        public IReadOnlyList<ExpressionComparison<T, TValue>> GetProperties<TValue>(string displayName)
         {
             var displayObjectAndTypes = _expressionComparison.Where(x => x.DisplayName == displayName);
 
@@ -156,7 +176,7 @@ namespace CoolFluentHelpers
             return new ExpressionComparison<T, TValue>(propertyExpression);
         }
 
-        public ExpressionValue<T, TValue> UnsafeCompare(QueryOperation queryOperation)
+        public ExpressionValue<T, TValue> Compare(QueryOperation queryOperation)
         {
             QueryOperation = queryOperation;
 
