@@ -55,8 +55,41 @@ namespace CoolFluentHelpers
         Equals,
     }
 
+    internal class DisplayObjectAndType : IEquatable<DisplayObjectAndType>
+    {
+        private DisplayObjectAndType(object obj, Type type, string displayName)
+        {
+            Obj = obj;
+            Type = type;
+            DisplayName = displayName;
+        }
+
+        public readonly string DisplayName;
+        public object Obj { get; }
+        public Type Type { get; }
+
+        public static DisplayObjectAndType Create(object obj, Type type, string displayName)
+        {
+            return new DisplayObjectAndType(obj, type, displayName);
+        }
+
+        //When DisplayName and Object and Type are equal, then they are equal
+        public bool Equals(DisplayObjectAndType other)
+        {
+            if (other is null)
+                return false;
+
+            return DisplayName == other.DisplayName && Obj == other.Obj && Type == other.Type;
+        }
+
+    }
+
     public class ExpressionBuilder<T>
     {
+        private List<DisplayObjectAndType> _expressionComparison = new();
+
+        public string DisplayName;
+
         private ExpressionBuilder()
         {
 
@@ -67,16 +100,41 @@ namespace CoolFluentHelpers
             return new ExpressionBuilder<T>();
         }
 
-        public ExpressionComparison<T, TValue> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression)
-            where TValue : struct
+        public ExpressionComparison<T, TValue> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName)
         {
-            return ExpressionComparison<T, TValue>.Create(propertyExpression);
+            var expressionComparison = ExpressionComparison<T, TValue>.Create(propertyExpression);
+
+            _expressionComparison.Add(DisplayObjectAndType.Create(expressionComparison, expressionComparison.GetType(), displayName));
+
+            return expressionComparison;
         }
 
-        public ExpressionComparison<T, TValue?> ForProperty<TValue>(Expression<Func<T, TValue?>> propertyExpression)
-            where TValue : struct
+        public IReadOnlyList<ExpressionComparison<T, TValue>> GetPropertiesByDisplayname<TValue>(string displayName)
         {
-            return ExpressionComparison<T, TValue?>.Create(propertyExpression);
+            var displayObjectAndTypes = _expressionComparison.Where(x => x.DisplayName == displayName);
+
+            return displayObjectAndTypes.Select(x => (ExpressionComparison<T, TValue>)x.Obj).ToList();
+        }
+
+        public IReadOnlyList<object> GetProperties(string displayName)
+        {
+            var displayObjectAndTypes = _expressionComparison.Where(x => x.DisplayName == displayName);
+
+            return displayObjectAndTypes.Select(x => x.Obj).ToList();
+        }
+
+        public IReadOnlyList<ExpressionComparison<T, TValue>> GetProperties<TValue>(string displayName, Expression<Func<T, TValue>> propertyExpression)
+        {
+            var displayObjectAndTypes = _expressionComparison.Where(x => x.Type == typeof(ExpressionComparison<T, TValue>) && x.DisplayName == displayName);
+
+            return displayObjectAndTypes.Select(x => (ExpressionComparison<T, TValue>)x.Obj).ToList();
+        }
+
+        public IReadOnlyList<ExpressionComparison<T, TValue>> GetProperties<TValue>(string displayname, TValue value)
+        {
+            var displayObjectAndTypes = _expressionComparison.Where(x => x.DisplayName == displayname && x.Type == typeof(ExpressionComparison<T, TValue>));
+
+            return displayObjectAndTypes.Select(x => (ExpressionComparison<T, TValue>)x.Obj).ToList();
         }
     }
 
@@ -93,18 +151,12 @@ namespace CoolFluentHelpers
             PropertyExpression = propertyExpression;
         }
 
-        private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, QueryOperation queryOperation)
-        {
-            PropertyExpression = propertyExpression;
-            QueryOperation = queryOperation;
-        }
-
         internal static ExpressionComparison<T, TValue> Create(Expression<Func<T, TValue>> propertyExpression)
         {
             return new ExpressionComparison<T, TValue>(propertyExpression);
         }
 
-        public ExpressionValue<T, TValue> Compare(QueryOperation queryOperation)
+        public ExpressionValue<T, TValue> UnsafeCompare(QueryOperation queryOperation)
         {
             QueryOperation = queryOperation;
 
@@ -115,7 +167,7 @@ namespace CoolFluentHelpers
         {
             QueryOperation = asQuery.Get();
 
-            return ExpressionValue<T,TValue>.Create(this);
+            return ExpressionValue<T, TValue>.Create(this);
         }
 
         internal ExpressionComparison<T, TValue> SetExpression(Expression<Func<T, bool>> expression)
@@ -162,19 +214,20 @@ namespace CoolFluentHelpers
 
     internal static class ExpressionValueExt
     {
-        internal static ExpressionComparison<T, TValue> WithValue<T, TValue>(this ExpressionComparison<T,TValue> expressionComparison,TValue value)
+        internal static ExpressionComparison<T, TValue> WithValue<T, TValue>(this ExpressionComparison<T, TValue> expressionComparison, TValue value)
         {
             var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, value);
-            
+
             expressionComparison.SetExpression(expression);
-            
+
             return expressionComparison;
         }
     }
 
-    internal static class ExpresssionComparisonExt {
+    internal static class ExpresssionComparisonExt
+    {
 
-        internal static List<ExpressionComparison<T, TValue>> CreateList<T, TValue>( this ExpressionComparison<T, TValue> expressionComparison)
+        internal static List<ExpressionComparison<T, TValue>> CreateList<T, TValue>(this ExpressionComparison<T, TValue> expressionComparison)
         {
             return new List<ExpressionComparison<T, TValue>> { expressionComparison };
         }
@@ -217,61 +270,4 @@ namespace CoolFluentHelpers
             return QueryOperation;
         }
     }
-    //public class ModelPropertyList<Model>
-    //{
-
-    //}
-    //public class ModelPropertyList<Model, Property>
-    //{
-    //    private Dictionary<string, ExpressionMakerField<Model, Property>> _expressionsMakerFields = new();
-
-    //    public static ModelPropertyList<Model, Property> Create(ExpressionMakerField<Model, Property> expressionMakerField = null)
-    //    {
-    //        return new ModelPropertyList<Model, Property>().Add(expressionMakerField);
-    //    }
-
-
-    //    public ModelPropertyList<Model, Property> Add(ExpressionMakerField<Model, Property> expressionMakerField)
-    //    {
-    //        if (expressionMakerField == null)
-    //            return this;
-
-    //        _expressionsMakerFields.Add(expressionMakerField.DisplayName, expressionMakerField);
-
-    //        return this;
-    //    }
-
-    //    public ModelPropertyList<Model, Property> AddRange(params ExpressionMakerField<Model, Property>[] expressionMakerFields)
-    //    {
-    //        foreach (var expressionMakerField in expressionMakerFields)
-    //        {
-    //            Add(expressionMakerField);
-    //        }
-
-    //        return this;
-    //    }
-
-    //    public ExpressionMakerField<Model, Property> Bind(Expression<Func<Model, Property>> expression, string displayName, params QueryOperation[] queryOperations)
-    //    {
-    //        var expressionMakerField = ExpressionMakerField<Model, Property>.Bind(expression, displayName, queryOperations);
-
-    //        AddRange(expressionMakerField);
-
-    //        return expressionMakerField;
-    //    }
-
-    //    public Result<ExpressionMakerField<Model, Property>> FindBy(string displayName)
-    //    {
-    //        if (!_expressionsMakerFields.ContainsKey(displayName))
-    //            return Result.Failure<ExpressionMakerField<Model, Property>>($"Field {displayName} not found");
-
-    //        return Result.Success(_expressionsMakerFields[displayName]);
-
-    //    }
-
-    //    public IReadOnlyList<ExpressionMakerField<Model, Property>> ToList()
-    //    {
-    //        return _expressionsMakerFields.Values.ToList();
-    //    }
-    //}
 }

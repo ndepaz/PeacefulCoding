@@ -1,4 +1,5 @@
 using CoolFluentHelpers;
+using CSharpFunctionalExtensions;
 using FluentAssertions;
 using System;
 using System.Collections.Generic;
@@ -156,11 +157,11 @@ namespace CoolUnitTests
         public void Equals_Equivalent2(List<Person> people)
         {
             var builder = ExpressionBuilder<Person>.Create();
+            var agePropertyExp = builder
+                .ForProperty(x => x.Age, "Age");
 
-            var expression = builder.ForProperty(x => x.Age)
-                .Compare(
-                    AsQuery.Number<int>(QueryNumber.GreaterThan)
-                )
+            var expression = agePropertyExp
+                .Compare(AsQuery.Number<int>(QueryNumber.GreaterThan))
                 .WithValue(18)
                 .AsExpression().Value;
 
@@ -168,15 +169,115 @@ namespace CoolUnitTests
 
             expression.Should().BeEquivalentTo(expression2);
 
-            var expression3 = builder.ForProperty(x => x.FavoriteNumber)
-                .Compare(QueryOperation.GreaterThan)
+            var expression3 = builder.ForProperty(x => x.FavoriteNumber, "Favorite Number #")
+                .UnsafeCompare(QueryOperation.GreaterThan)
                 .WithAnyValue(18)
                 .AsExpression().Value;
 
             Expression<Func<Person, bool>> expression4 = x => x.FavoriteNumber > 18;
 
             expression3.Should().BeEquivalentTo(expression4);
-            
+
+        }
+
+
+        public static IEnumerable<object[]> PeopleWithDiffAge()
+        {
+            var dad = new Person("John", DateTime.Now.Date.AddYears(-40));
+
+            dad.FavoriteNumber = 3;
+
+            var mom = new Person("Jane", DateTime.Now.Date.AddYears(-30));
+
+            mom.FavoriteNumber = 7;
+
+            var son = new Person("Bob", DateTime.Now.Date.AddYears(-15));
+
+            son.FavoriteNumber = 14;
+
+            var daughter = new Person("Elisa", DateTime.Now.Date.AddYears(-8));
+
+            daughter.FavoriteNumber = 8;
+
+            var kiddo = new Person("Bart", DateTime.Now.Date.AddYears(-4));
+
+            daughter.FavoriteNumber = 3;
+
+            mom.AddFamily(son, daughter, dad);
+
+            dad.AddFamily(son, daughter, mom);
+
+            var list = new List<Person> { dad, mom, son, daughter, kiddo };
+            Expression<Func<Person, bool>> expression18 = x => x.Age == 18;
+            Expression<Func<Person, bool>> expression15 = x => x.Age > 15;
+            Expression<Func<Person, bool>> expressionGE15 = x => x.Age >= 15;
+            Expression<Func<Person, bool>> expressionLE8 = x => x.Age <= 8;
+            Expression<Func<Person, bool>> expressionL8 = x => x.Age < 8;
+
+            yield return new object[] { list, QueryOperation.Equals, 18, expression18 };
+            yield return new object[] { list, QueryOperation.GreaterThan, 15, expression15 };
+            yield return new object[] { list, QueryOperation.GreaterThanOrEqual, 15, expressionGE15 };
+            yield return new object[] { list, QueryOperation.LessThanOrEqual, 8, expressionLE8 };
+            yield return new object[] { list, QueryOperation.LessThan, 8, expressionL8 };
+
+        }
+
+        [Theory]
+        [MemberData(nameof(PeopleWithDiffAge))]
+        public void Multiple_equivalent_expressions(List<Person> people, QueryOperation queryOperation, int value, Expression<Func<Person, bool>> expectedExpression)
+        {
+            var builder = ExpressionBuilder<Person>.Create();
+            var agePropertyExp = builder
+                .ForProperty(x => x.Age, "Age");
+
+            var expression = agePropertyExp
+                .UnsafeCompare(queryOperation)
+                .WithValue(value)
+                .AsExpression().Value;
+
+            var normalResult = people.AsQueryable().Where(expectedExpression);
+
+            var queryResult = people.AsQueryable().Where(expression);
+
+            queryResult.Should().BeEquivalentTo(normalResult);
+        }
+
+        [Theory]
+        [MemberData(nameof(PeopleWithDiffAge))]
+        public void we_can_find_and_evaluate_a_property(List<Person> people, QueryOperation queryOperation, object value, Expression<Func<Person, bool>> expectedExpression)
+        {
+            var builder = ExpressionBuilder<Person>.Create();
+            var agePropertyExp = builder
+                .ForProperty(x => x.Age, "Age");
+
+            var propertyName = "Age";
+            var valueType = typeof(int);
+
+            var getPropertiesMethod = builder.GetType()
+                .GetMethod("GetPropertiesByDisplayname")
+                .MakeGenericMethod(valueType);
+
+            var properties = (IEnumerable<object>)getPropertiesMethod.Invoke(builder, new object[] { propertyName });
+            var foundProperty = properties.FirstOrDefault();
+
+            var compareMethod = foundProperty.GetType()
+                .GetMethod("UnsafeCompare");
+
+            var expressionValue = compareMethod.Invoke(foundProperty, new object[] { queryOperation });
+
+            var WithValue = expressionValue.GetType().GetMethod("WithValue");
+
+            var expressionComparison = WithValue.Invoke(expressionValue, new object[] { value });
+
+            var asExpression = expressionComparison.GetType().GetMethod("AsExpression");
+
+            Result< Expression < Func<Person, bool> >> expressionResult = (Result<Expression<Func<Person, bool>>>) asExpression.Invoke(expressionComparison, null);
+
+            var normalResult = people.AsQueryable().Where(expectedExpression);
+
+            var queryResult = people.AsQueryable().Where(expressionResult.Value);
+
+            queryResult.Should().BeEquivalentTo(normalResult);
         }
     }
 
