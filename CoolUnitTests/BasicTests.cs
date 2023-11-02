@@ -494,6 +494,65 @@ namespace CoolUnitTests
 
             var queryResult = people.AsQueryable().Where(expression2);
         }
+
+        [Theory]
+        [MemberData(nameof(People))]
+        public void only_if_some_condition_is_true(List<Person> people)
+        {
+
+            //arrange
+
+            var builder = ExpressionBuilder<Person>.Create();
+            var hasAPet = "does have a pet";
+
+            var result = builder
+                .ForProperty(x => x.Age)
+                .OnlyIf(hasAPet == "does have a pet")
+                .Compare(QueryOperation.GreaterThan)
+                .WithAnyValue(18)
+                .CombineWith(QueryClause.And)
+                .Compare(QueryOperation.LessThan)
+                .WithAnyValue(80)
+                .AsExpressionResult();
+
+            result.IsSuccess.Should().BeTrue();
+
+            var expression = result.Value;
+
+            Expression<Func<Person, bool>> expectedExpression = x => x.Age > 18 && x.Age < 80;
+
+            expression.Should().BeEquivalentTo(expectedExpression);
+
+            var normalResult = people.AsQueryable().Where(expectedExpression);
+
+            var queryResult = people.AsQueryable().Where(expression);
+
+            queryResult.Should().BeEquivalentTo(normalResult);
+
+        }
+
+        [Theory]
+        [MemberData(nameof(People))]
+        public void only_if_some_condition_is_false(List<Person> people)
+        {
+
+            //arrange
+
+            var builder = ExpressionBuilder<Person>.Create();
+            var hasAPet = "does NOT have a pet";
+
+            var result = builder
+                .ForProperty(x => x.Age)
+                .OnlyIf(hasAPet == "does have a pet")
+                .Compare(QueryOperation.GreaterThan)
+                .WithAnyValue(18)
+                .CombineWith(QueryClause.And)
+                .Compare(QueryOperation.LessThan)
+                .WithAnyValue(80)
+                .AsExpressionResult();
+
+            result.IsSuccess.Should().BeFalse();
+        }
     }
 
 
