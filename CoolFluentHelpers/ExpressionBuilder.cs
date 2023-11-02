@@ -11,25 +11,30 @@ using System.Threading.Tasks;
 
 namespace CoolFluentHelpers
 {
+    public enum QueryClause
+    {
+        And,
+        Or
+    }
+
     public enum QueryOperation
     {
-
-        StartsWith,
-        EndsWith,
-        Contains,
         Equals,
         LessThan,
         LessThanOrEqual,
         GreaterThan,
         GreaterThanOrEqual,
+        StartsWith,
+        EndsWith,
+        Contains,
     }
     public enum QueryString
     {
 
+        Equals,
         StartsWith,
         EndsWith,
         Contains,
-        Equals,
     }
 
     public enum QueryNumber
@@ -55,61 +60,10 @@ namespace CoolFluentHelpers
         Equals,
     }
 
-    public class PropertyDisplayNameAndType : IEquatable<PropertyDisplayNameAndType>
-    {
-        protected PropertyDisplayNameAndType(string displayName, Type type)
-        {
-            DisplayName = displayName;
-            Type = type;
-        }
-
-        public string DisplayName { get; }
-        public Type Type { get; }
-
-        public static PropertyDisplayNameAndType Create(string displayName, Type type)
-        {
-            return new PropertyDisplayNameAndType(displayName, type);
-        }
-
-        //When DisplayName and Type are equal, then they are equal
-        public bool Equals(PropertyDisplayNameAndType other)
-        {
-            if (other is null)
-                return false;
-
-            return DisplayName == other.DisplayName && Type == other.Type;
-        }
-
-    }
-
-    internal class PropertyDisplayObjectAndType : PropertyDisplayNameAndType, IEquatable<PropertyDisplayObjectAndType>
-    {
-        private PropertyDisplayObjectAndType(object obj, Type type, string displayName) : base(displayName, type)
-        {
-            Obj = obj;
-        }
-        public object Obj { get; }
-
-        public static PropertyDisplayObjectAndType Create(object obj, Type type, string displayName)
-        {
-            return new PropertyDisplayObjectAndType(obj, type, displayName);
-        }
-
-        public bool Equals(PropertyDisplayObjectAndType other)
-        {
-            if (other is null)
-                return false;
-
-            return DisplayName == other.DisplayName && Obj == other.Obj && Type == other.Type;
-        }
-    }
-
-    public class ExpressionBuilder<T>
+    public class ExpressionBuilder<T> : IExpressionBuilder<T>
     {
 
         private List<ICompareExpression<T>> compareExpressions = new();
-
-        public string DisplayName;
 
         private ExpressionBuilder()
         {
@@ -122,7 +76,7 @@ namespace CoolFluentHelpers
         }
         public ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null)
         {
-            if (displayName == null)
+            if (displayName is null)
             {
                 displayName = propertyExpression.Body.ToString();
             }
@@ -134,9 +88,7 @@ namespace CoolFluentHelpers
             return expressionComparison;
         }
 
-        //FindByPropertyDisplayName
-
-        public IResult<ICompareExpression<T>> FindByPropertyDisplayName(string propertyDisplayName)
+        public IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName)
         {
 
             var expressionComparison = compareExpressions.FirstOrDefault(x => x.PropertyDisplayName == propertyDisplayName);
@@ -144,6 +96,12 @@ namespace CoolFluentHelpers
             return Result.SuccessIf(expressionComparison is not null, expressionComparison, "Property was not found");
         }
 
+    }
+
+    public interface IExpressionBuilder<T>
+    {
+        IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName);
+        ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null);
     }
 
     public class ExpressionComparison<T, TValue> : ICompareExpression<T>
@@ -175,13 +133,6 @@ namespace CoolFluentHelpers
             Value = value;
         }
 
-        public ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, string propertyDisplayName, QueryOperation queryOperation)
-        {
-            PropertyExpression = propertyExpression;
-            PropertyDisplayName = propertyDisplayName;
-            QueryOperation = queryOperation;
-        }
-
         internal static ExpressionComparison<T, TValue> Copy(ExpressionComparison<T, TValue> expressionComparison)
         {
             return new ExpressionComparison<T, TValue>(
@@ -192,18 +143,13 @@ namespace CoolFluentHelpers
                 .ChangeCurrentAndOrClause(expressionComparison.IsAnd);
         }
 
-        internal static ExpressionComparison<T, TValue> Create(string propertyDisplayName, Expression<Func<T, TValue>> propertyExpression, QueryOperation queryOperation)
-        {
-            return new ExpressionComparison<T, TValue>(propertyExpression, propertyDisplayName, queryOperation);
-        }
-
         internal static ExpressionComparison<T, TValue> Create(string propertyDisplayName, Expression<Func<T, TValue>> propertyExpression)
         {
             return new ExpressionComparison<T, TValue>(propertyExpression, propertyDisplayName);
         }
 
 
-        public ICompareValue<T> Compare()
+        public ICompareValue<T> CompareWithDefault()
         {
             return ExpressionValue<T, TValue>.Create(this);
         }
@@ -269,8 +215,17 @@ namespace CoolFluentHelpers
     public interface ICompareExpression<T>
     {
         string PropertyDisplayName { get; }
+        /// <summary>
+        /// Deault QueryOperation can be Equals or a predefined QueryOperation by calling Compare(QueryOperation queryOperation) before calling CompareWithDefault()
+        /// </summary>
+        /// <returns></returns>
+        public ICompareValue<T> CompareWithDefault();
 
-        public ICompareValue<T> Compare();
+        /// <summary>
+        /// Set the QueryOperation to be used by default
+        /// </summary>
+        /// <param name="queryOperation"></param>
+        /// <returns></returns>
         public ICompareValue<T> Compare(QueryOperation queryOperation);
 
     }
@@ -279,11 +234,22 @@ namespace CoolFluentHelpers
     {
         public ICompareExpression<T> OrElse();
         public ICompareExpression<T> AndAlso();
+        /// <summary>
+        /// Combine the current expression with the next expression using the clause
+        /// </summary>
+        /// <param name="clause"></param>
+        /// <returns></returns>
+        ICompareExpression<T> CombineWith(QueryClause clause);
+        /// <summary>
+        /// Returns the combined expressions as a single expression
+        /// </summary>
+        /// <returns></returns>
         public IResult<Expression<Func<T, bool>>> AsExpression();
     }
 
     public interface ICompareValue<T>
     {
+
         /// <summary>
         /// The value it's automatically converted to the type of the property.
         /// Ideally, convert your value to the type of the property before calling this method.
@@ -323,6 +289,16 @@ namespace CoolFluentHelpers
             return this;
         }
 
+        public ICompareExpression<T> CombineWith(QueryClause clause)
+        {
+            if (clause is QueryClause.And)
+            {
+                return AndAlso();
+            }
+
+            return OrElse();
+        }
+        
         public ICompareExpression<T> OrElse()
         {
             _expressionComparison.ChangeCurrentToOr();
