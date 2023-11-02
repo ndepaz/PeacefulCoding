@@ -213,7 +213,7 @@ namespace CoolFluentHelpers
         /// Returns the combined expressions as a single expression
         /// </summary>
         /// <returns></returns>
-        public IResult<Expression<Func<T, bool>>> AsExpression();
+        public IResult<Expression<Func<T, bool>>> AsExpressionResult();
     }
 
     public interface ICompareValue<T>
@@ -282,7 +282,7 @@ namespace CoolFluentHelpers
             return _expressionComparison.AddExpressionsToAndList(WithValue((TValue)_value));
         }
 
-        public IResult<Expression<Func<T, bool>>> AsExpression()
+        public IResult<Expression<Func<T, bool>>> AsExpressionResult()
         {
             if (_expressionComparison.IsAnd)
             {

@@ -163,7 +163,7 @@ namespace CoolUnitTests
             var expression = agePropertyExp
                 .Compare(QueryOperation.GreaterThan)
                 .WithAnyValue(18)
-                .AsExpression().Value;
+                .AsExpressionResult().Value;
 
             Expression<Func<Person, bool>> expression2 = x => x.Age > 18;
 
@@ -172,7 +172,7 @@ namespace CoolUnitTests
             var expression3 = builder.ForProperty(x => x.FavoriteNumber, "Favorite Number #")
                 .Compare(QueryOperation.GreaterThan)
                 .WithAnyValue(18)
-                .AsExpression().Value;
+                .AsExpressionResult().Value;
 
             Expression<Func<Person, bool>> expression4 = x => x.FavoriteNumber > 18;
 
@@ -233,7 +233,7 @@ namespace CoolUnitTests
             var expression = agePropertyExp
                 .Compare(queryOperation)
                 .WithAnyValue(value)
-                .AsExpression().Value;
+                .AsExpressionResult().Value;
 
             var normalResult = people.AsQueryable().Where(expectedExpression);
 
@@ -257,7 +257,7 @@ namespace CoolUnitTests
                 .AndAlso()
                 .Compare(QueryOperation.LessThan)
                 .WithAnyValue(100)
-                .AsExpression();
+                .AsExpressionResult();
 
             expressionResult.IsSuccess.Should().BeTrue();
 
@@ -297,7 +297,7 @@ namespace CoolUnitTests
             var expressionResult = property
                 .Compare(queryOperation)
                 .WithAnyValue(value)
-                .AsExpression();
+                .AsExpressionResult();
 
             //assert
             expressionResult.IsSuccess.Should().BeTrue();
@@ -338,7 +338,7 @@ namespace CoolUnitTests
             var expressionResult = property
                 .CompareWithDefault()
                 .WithAnyValue(18)
-                .AsExpression();
+                .AsExpressionResult();
 
             //assert
             expressionResult.IsSuccess.Should().BeTrue();
@@ -402,7 +402,7 @@ namespace CoolUnitTests
 
             //act
 
-            var expressionResult = agePropertyExp.AsExpression();
+            var expressionResult = agePropertyExp.AsExpressionResult();
 
             //assert
 
@@ -440,7 +440,7 @@ namespace CoolUnitTests
 
             //act
 
-            var expressionResult = agePropertyExp.AsExpression();
+            var expressionResult = agePropertyExp.AsExpressionResult();
 
             //assert
 
