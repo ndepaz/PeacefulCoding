@@ -146,7 +146,7 @@ namespace CoolUnitTests
             var fields = new List<ExpressionMakerField<Person, int>>();
 
 
-            var fieldList = ModelFieldList<Person, int>.Create();
+            var fieldList = ModelFieldList<Person, int?>.Create();
 
             fieldList.Bind(x=>x.Age,"Age")
                 .WithAndExpression(operation,age);
