@@ -31,12 +31,31 @@ namespace CoolUnitTests
         private List<Person> _family = new();
         public IReadOnlyList<Person> Familiy => _family.AsReadOnly();
 
+        private List<Animal> _pets = new();
+
+        public IReadOnlyList<Animal> Pets => _pets.AsReadOnly();
+
         public void AddFamily(params Person[] people)
         {
             _family.AddRange(people);
         }
+
+        public void AddPets(params Animal[] animals)
+        {
+            _pets.AddRange(animals);
+        }
+
     }
 
+    public class Animal
+    {
+        public string Name { get; set; }
+        public int Age { get; set; }
+    }
 
+    public class Dog : Animal
+    {
+        public string Breed { get; set; }
+    }
 
 }

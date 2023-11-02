@@ -1,10 +1,12 @@
-﻿using CSharpFunctionalExtensions;
+﻿using CoolFluentHelpers;
+using CSharpFunctionalExtensions;
 using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -28,13 +30,87 @@ namespace CoolFluentHelpers
         EndsWith,
         Contains,
     }
+    public class NestedExpressionBuilder<T, TValue> : ExpressionBuilder<TValue>
+    {
+        private readonly Expression<Func<T, IEnumerable<TValue>>> propertyExpression;
+        private readonly string displayName;
+        private readonly ExpressionBuilder<T> parentBuilder;
+        private readonly string nestedBasePropertyExpressionPath;
+
+        public NestedExpressionBuilder(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName, ExpressionBuilder<T> parentBuilder, string basePropertyExpressionPath)
+        {
+            this.propertyExpression = propertyExpression;
+            this.displayName = displayName;
+            this.parentBuilder = parentBuilder;
+            this.nestedBasePropertyExpressionPath = basePropertyExpressionPath;
+        }
+        public static Expression GetExpressionProp(ParameterExpression parameterExpression, string propertyName)
+        {
+            Expression body = parameterExpression;
+            foreach (var member in propertyName.Split('.'))
+            {
+                body = Expression.PropertyOrField(body, member);
+            }
+            return body;
+        }
+        public ICompareExpression<T> ForProperty<TNestedValue>(Expression<Func<TValue, TNestedValue>> propertyExpression, string nestedDisplayName = null)
+        {
+            if (nestedDisplayName is null)
+            {
+                nestedDisplayName = propertyExpression.Body.ToString();
+            }
+
+            var targetType = typeof(T);
+            //public const string collectionName =  "<CollectionName>.<ModelName>.<PropertyName>";
+            //type is Animal
+            //var lambda = ExpressionHelper.GetStringValueFromCollection<MainModel>(collectionName, propertyName, operatorName, searchValue, type);
+
+            var lastPropertyName = propertyExpression.Body.ToString().Split(".").Last();
+
+            var propertyName = $"{nestedBasePropertyExpressionPath}.{lastPropertyName}";
+
+            var delegateType = typeof(Func<,>).MakeGenericType(targetType, typeof(bool));
+            var parameterExp = Expression.Parameter(targetType, "o");
+            var propertyExp = GetExpressionProp(parameterExp, propertyName);
+
+            //Get Method from propertyExpression
+
+            var methodInfoFromPropertyExpression = propertyExpression.Body.GetType().GetMethod("StartsWith");
+            var value = propertyExpression.Parameters[0].ToString();
+            //MethodInfo method = typeof(string).GetMethod(methodName, new[] { typeof(string) });
+            var someValue = Expression.Constant(value, typeof(string));
+            var containsMethodExp = Expression.Call(propertyExp, methodInfoFromPropertyExpression, someValue);
+            var predicate = Expression.Lambda(delegateType, containsMethodExp, parameterExp);
+
+            //var org = Expression.Parameter(typeof(Entity), "org");
+            //var body = Expression.Call(typeof(Enumerable), "Any", new[] { targetType },
+            //    Expression.PropertyOrField(org, collectionPropName), predicate);
+            //var expression = Expression.Lambda<Func<Entity, bool>>(body, org);
+            //return expression;
+
+            var org = Expression.Parameter(typeof(T), "x");
+            
+            var body = Expression.Call(typeof(Enumerable), "Any", new[] { targetType },
+                Expression.PropertyOrField(org, propertyName), predicate );
+
+            var expression = Expression.Lambda<Func<T, bool>>(body, org);
+
+
+            var nestedExpressionComparison =
+                parentBuilder.ForProperty(expression, $"{this.displayName}.{nestedDisplayName}");
+
+            return nestedExpressionComparison;
+        }
+    }
+
+}
 
     public class ExpressionBuilder<T> : IExpressionBuilder<T>
     {
 
         private List<ICompareExpression<T>> compareExpressions = new();
 
-        private ExpressionBuilder()
+        protected ExpressionBuilder()
         {
 
         }
@@ -43,6 +119,9 @@ namespace CoolFluentHelpers
         {
             return new ExpressionBuilder<T>();
         }
+
+        private List<IExpressionBuilder<T>> nestedBuilders = new();
+
         public ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null)
         {
             if (displayName is null)
@@ -56,13 +135,40 @@ namespace CoolFluentHelpers
 
             return expressionComparison;
         }
+        public NestedExpressionBuilder<T, TValue> ForList<TValue>(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName = null)
+        {
+            if (displayName is null)
+            {
+                displayName = propertyExpression.Body.ToString();
+            }
+        
+            var nestedBuilder = new NestedExpressionBuilder<T, TValue>(propertyExpression, displayName, this, propertyExpression.GetPropertyPath());
+            
+
+            //nestedBuilders.Add((IExpressionBuilder<T>)nestedBuilder);
+
+            return nestedBuilder;
+        }
 
         public IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName)
         {
-
             var expressionComparison = compareExpressions.FirstOrDefault(x => x.PropertyDisplayName == propertyDisplayName);
 
-            return Result.SuccessIf(expressionComparison is not null, expressionComparison, "Property was not found");
+            if (expressionComparison != null)
+            {
+                return Result.Success(expressionComparison);
+            }
+
+            foreach (var nestedBuilder in nestedBuilders)
+            {
+                var nestedResult = nestedBuilder.FindByPropertyByDisplayName(propertyDisplayName);
+                if (nestedResult.IsSuccess)
+                {
+                    return nestedResult;
+                }
+            }
+
+            return Result.Failure<ICompareExpression<T>>("Property was not found");
         }
 
     }
@@ -359,4 +465,4 @@ namespace CoolFluentHelpers
             return node == _source ? _target : base.VisitParameter(node);
         }
     }
-}
+

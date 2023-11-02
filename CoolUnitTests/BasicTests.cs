@@ -56,11 +56,17 @@ namespace CoolUnitTests
 
             mom.FavoriteNumber = 7;
 
+            mom.AddPets(new Dog { Name = "Fido", Age = 3, Breed = "Labrador" });
+
             var son = new Person("Bob", DateTime.Now.AddYears(-15));
+
+            son.AddPets(new Dog { Name = "Chow", Age = 3, Breed = "Labrador" });
 
             son.FavoriteNumber = 14;
 
             var daughter = new Person("Elisa", DateTime.Now.AddYears(-8));
+
+            daughter.AddPets(new Dog { Name = "Fun", Age = 3, Breed = "Labrador" });
 
             daughter.FavoriteNumber = 8;
 
@@ -454,6 +460,41 @@ namespace CoolUnitTests
 
             var queryResult = people.AsQueryable().Where(expression2);
         }
+
+        [Theory]
+        [MemberData(nameof(People))]
+        public void properties_can_be_enumerable(List<Person> people)
+        {
+
+            //arrange
+
+            var builder = ExpressionBuilder<Person>.Create();
+
+            var agePropertyExp = builder
+                .ForList(x => x.Pets)
+                .ForProperty(x => x.Name)
+                .Compare(QueryOperation.StartsWith)
+                .WithAnyValue("Fi")
+                .AndAlso()
+                .Compare(QueryOperation.EndsWith)
+                .WithAnyValue("o");
+                ;
+
+
+            //act
+
+            var expressionResult = agePropertyExp.AsExpressionResult();
+
+            //assert
+
+            expressionResult.IsSuccess.Should().BeTrue();
+
+            var expression2 = expressionResult.Value;
+
+            var data = people.AsQueryable().Where(expression2).ToList();
+
+        }
+
     }
 
 
