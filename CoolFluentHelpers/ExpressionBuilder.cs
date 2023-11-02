@@ -65,11 +65,16 @@ namespace CoolFluentHelpers
             return Result.SuccessIf(expressionComparison is not null, expressionComparison, "Property was not found");
         }
 
+        public IReadOnlyList<ICompareExpression<T>> FindPropertiesByDisplayName(string propertyDisplayName)
+        {
+            return compareExpressions.Where(x => x.PropertyDisplayName == propertyDisplayName).ToList();
+        }
     }
 
     public interface IExpressionBuilder<T>
     {
         IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName);
+        IReadOnlyList<ICompareExpression<T>> FindPropertiesByDisplayName(string propertyDisplayName);
         ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null);
     }
 
