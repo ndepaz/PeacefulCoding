@@ -415,6 +415,8 @@ namespace CoolUnitTests
             var normalResult = people.AsQueryable().Where(expression);
 
             var queryResult = people.AsQueryable().Where(expression2);
+
+            normalResult.Should().BeEquivalentTo(queryResult);
         }
 
         [Theory]
