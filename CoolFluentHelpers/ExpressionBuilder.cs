@@ -82,7 +82,7 @@ namespace CoolFluentHelpers
 
     }
 
-    internal class PropertyDisplayObjectAndType : PropertyDisplayNameAndType,IEquatable<PropertyDisplayObjectAndType>
+    internal class PropertyDisplayObjectAndType : PropertyDisplayNameAndType, IEquatable<PropertyDisplayObjectAndType>
     {
         private PropertyDisplayObjectAndType(object obj, Type type, string displayName) : base(displayName, type)
         {
@@ -106,7 +106,8 @@ namespace CoolFluentHelpers
 
     public class ExpressionBuilder<T>
     {
-        private List<PropertyDisplayObjectAndType> _expressionComparison = new();
+
+        private List<ICompareExpression<T>> compareExpressions = new();
 
         public string DisplayName;
 
@@ -119,91 +120,183 @@ namespace CoolFluentHelpers
         {
             return new ExpressionBuilder<T>();
         }
-
-        public ExpressionComparison<T, TValue> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName)
+        public ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null)
         {
-            var expressionComparison = ExpressionComparison<T, TValue>.Create(propertyExpression);
+            if (displayName == null)
+            {
+                displayName = propertyExpression.Body.ToString();
+            }
 
-            _expressionComparison.Add(PropertyDisplayObjectAndType.Create(expressionComparison, expressionComparison.GetType(), displayName));
+            var expressionComparison = ExpressionComparison<T, TValue>.Create(displayName, propertyExpression);
+
+            compareExpressions.Add(expressionComparison);
 
             return expressionComparison;
         }
 
-        public IReadOnlyList<ExpressionComparison<T, TValue>> GetProperties<TValue>(string displayName)
-        {
-            var displayObjectAndTypes = _expressionComparison.Where(x => x.DisplayName == displayName);
+        //FindByPropertyDisplayName
 
-            return displayObjectAndTypes.Select(x => (ExpressionComparison<T, TValue>)x.Obj).ToList();
+        public IResult<ICompareExpression<T>> FindByPropertyDisplayName(string propertyDisplayName)
+        {
+
+            var expressionComparison = compareExpressions.FirstOrDefault(x => x.PropertyDisplayName == propertyDisplayName);
+
+            return Result.SuccessIf(expressionComparison is not null, expressionComparison, "Property was not found");
         }
 
-        public IReadOnlyList<object> GetProperties(string displayName)
-        {
-            var displayObjectAndTypes = _expressionComparison.Where(x => x.DisplayName == displayName);
-
-            return displayObjectAndTypes.Select(x => x.Obj).ToList();
-        }
-
-        public IReadOnlyList<ExpressionComparison<T, TValue>> GetProperties<TValue>(string displayName, Expression<Func<T, TValue>> propertyExpression)
-        {
-            var displayObjectAndTypes = _expressionComparison.Where(x => x.Type == typeof(ExpressionComparison<T, TValue>) && x.DisplayName == displayName);
-
-            return displayObjectAndTypes.Select(x => (ExpressionComparison<T, TValue>)x.Obj).ToList();
-        }
-
-        public IReadOnlyList<ExpressionComparison<T, TValue>> GetProperties<TValue>(string displayname, TValue value)
-        {
-            var displayObjectAndTypes = _expressionComparison.Where(x => x.DisplayName == displayname && x.Type == typeof(ExpressionComparison<T, TValue>));
-
-            return displayObjectAndTypes.Select(x => (ExpressionComparison<T, TValue>)x.Obj).ToList();
-        }
     }
 
-    public class ExpressionComparison<T, TValue>
+    public class ExpressionComparison<T, TValue> : ICompareExpression<T>
     {
         internal Expression<Func<T, TValue>> PropertyExpression { get; }
+        public string PropertyDisplayName { get; }
 
-        internal QueryOperation QueryOperation;
+        internal QueryOperation QueryOperation { get; private set; }
 
-        private Expression<Func<T, bool>> _expression;
+        internal TValue Value { get; private set; }
 
-        private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression)
+        internal bool IsAnd { get; private set; } = true;
+
+        private List<Expression<Func<T, bool>>> _expressionAndList = new();
+        private List<Expression<Func<T, bool>>> _expressionOrList = new();
+
+        private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, string propertyDisplayName)
         {
             PropertyExpression = propertyExpression;
+            PropertyDisplayName = propertyDisplayName;
+
         }
 
-        internal static ExpressionComparison<T, TValue> Create(Expression<Func<T, TValue>> propertyExpression)
+        private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, string propertyDisplayName, TValue value, QueryOperation queryOperation)
         {
-            return new ExpressionComparison<T, TValue>(propertyExpression);
+            PropertyExpression = propertyExpression;
+            PropertyDisplayName = propertyDisplayName;
+            QueryOperation = queryOperation;
+            Value = value;
         }
 
-        public ExpressionValue<T, TValue> Compare(QueryOperation queryOperation)
+        public ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, string propertyDisplayName, QueryOperation queryOperation)
+        {
+            PropertyExpression = propertyExpression;
+            PropertyDisplayName = propertyDisplayName;
+            QueryOperation = queryOperation;
+        }
+
+        internal static ExpressionComparison<T, TValue> Copy(ExpressionComparison<T, TValue> expressionComparison)
+        {
+            return new ExpressionComparison<T, TValue>(
+                expressionComparison.PropertyExpression,
+                expressionComparison.PropertyDisplayName,
+                expressionComparison.Value,
+                expressionComparison.QueryOperation)
+                .ChangeCurrentAndOrClause(expressionComparison.IsAnd);
+        }
+
+        internal static ExpressionComparison<T, TValue> Create(string propertyDisplayName, Expression<Func<T, TValue>> propertyExpression, QueryOperation queryOperation)
+        {
+            return new ExpressionComparison<T, TValue>(propertyExpression, propertyDisplayName, queryOperation);
+        }
+
+        internal static ExpressionComparison<T, TValue> Create(string propertyDisplayName, Expression<Func<T, TValue>> propertyExpression)
+        {
+            return new ExpressionComparison<T, TValue>(propertyExpression, propertyDisplayName);
+        }
+
+
+        public ICompareValue<T> Compare()
+        {
+            return ExpressionValue<T, TValue>.Create(this);
+        }
+
+        public ICompareValue<T> Compare(QueryOperation queryOperation)
         {
             QueryOperation = queryOperation;
 
             return ExpressionValue<T, TValue>.Create(this);
         }
 
-        public ExpressionValue<T, TValue> Compare(AsQuery<TValue> asQuery)
+        private ExpressionComparison<T, TValue> ChangeCurrentAndOrClause(bool useAnd)
         {
-            QueryOperation = asQuery.Get();
-
-            return ExpressionValue<T, TValue>.Create(this);
-        }
-
-        internal ExpressionComparison<T, TValue> SetExpression(Expression<Func<T, bool>> expression)
-        {
-            _expression = expression;
+            IsAnd = useAnd;
 
             return this;
         }
 
-        public IResult<Expression<Func<T, bool>>> AsExpression()
+        internal ExpressionComparison<T, TValue> ChangeCurrentToAnd()
         {
-            return Result.Success(_expression);
+            return ChangeCurrentAndOrClause(true);
+        }
+
+        internal ExpressionComparison<T, TValue> ChangeCurrentToOr()
+        {
+            return ChangeCurrentAndOrClause(false);
+        }
+
+        internal void SetValue(TValue value)
+        {
+            this.Value = value;
+        }
+
+        internal IResult<Expression<Func<T, bool>>> AsExpression()
+        {
+            var andExpressionsList = _expressionAndList;
+
+            var orExpressionsList = _expressionOrList;
+
+            return ExpressionCombiner.CombineExpressions(andExpressionsList, orExpressionsList);
+        }
+
+        internal ICompareExpression<T> AddExpressionsToAndList(ExpressionComparison<T, TValue> expressionComparison)
+        {
+
+            var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, expressionComparison.Value);
+
+            _expressionAndList.Add(expression);
+
+            return this;
+        }
+
+        internal ICompareExpression<T> AddExpressionsToOrList(ExpressionComparison<T, TValue> expressionComparison)
+        {
+            var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, expressionComparison.Value);
+
+            _expressionOrList.Add(expression);
+
+            return this;
         }
     }
-    public class ExpressionValue<T, TValue>
+
+    public interface ICompareExpression<T>
     {
+        string PropertyDisplayName { get; }
+
+        public ICompareValue<T> Compare();
+        public ICompareValue<T> Compare(QueryOperation queryOperation);
+
+    }
+
+    public interface ICompareAndOr<T>
+    {
+        public ICompareExpression<T> OrElse();
+        public ICompareExpression<T> AndAlso();
+        public IResult<Expression<Func<T, bool>>> AsExpression();
+    }
+
+    public interface ICompareValue<T>
+    {
+        /// <summary>
+        /// The value it's automatically converted to the type of the property.
+        /// Ideally, convert your value to the type of the property before calling this method.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public ICompareAndOr<T> WithAnyValue(object value);
+    }
+
+    public class ExpressionValue<T, TValue> : ICompareValue<T>, ICompareAndOr<T>
+    {
+        private object _value;
+
         private ExpressionValue(ExpressionComparison<T, TValue> expressionComparison)
         {
             _expressionComparison = expressionComparison;
@@ -216,78 +309,109 @@ namespace CoolFluentHelpers
             return new ExpressionValue<T, TValue>(expressionComparison);
         }
 
-        public ExpressionComparison<T, TValue> WithValue(TValue value)
+        internal ExpressionComparison<T, TValue> WithValue(TValue value)
         {
-            return _expressionComparison.WithValue(value);
+            _expressionComparison.SetValue(value);
+
+            return ExpressionComparison<T, TValue>.Copy(_expressionComparison);
         }
 
-        /// <summary>
-        /// Performs a cast to TValue and uses the WithValue
-        /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
-        public ExpressionComparison<T, TValue> WithAnyValue(object value)
+        public ICompareAndOr<T> WithAnyValue(object value)
         {
-            return WithValue((TValue)value);
+            _value = value;
+
+            return this;
+        }
+
+        public ICompareExpression<T> OrElse()
+        {
+            _expressionComparison.ChangeCurrentToOr();
+
+            return _expressionComparison.AddExpressionsToOrList(WithValue((TValue)_value));
+        }
+
+        public ICompareExpression<T> AndAlso()
+        {
+            _expressionComparison.ChangeCurrentToAnd();
+
+            return _expressionComparison.AddExpressionsToAndList(WithValue((TValue)_value));
+        }
+
+        public IResult<Expression<Func<T, bool>>> AsExpression()
+        {
+            if (_expressionComparison.IsAnd)
+            {
+                AndAlso();
+            }
+            else
+            {
+                OrElse();
+            }
+
+            return _expressionComparison.AsExpression();
         }
     }
 
-    internal static class ExpressionValueExt
+    public static class ExpressionCombiner
     {
-        internal static ExpressionComparison<T, TValue> WithValue<T, TValue>(this ExpressionComparison<T, TValue> expressionComparison, TValue value)
+        public static IResult<Expression<Func<T, bool>>> CombineExpressions<T>(
+            List<Expression<Func<T, bool>>> andExpressions,
+            List<Expression<Func<T, bool>>> orExpressions)
         {
-            var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, value);
+            Expression<Func<T, bool>> combinedExpression = null;
 
-            expressionComparison.SetExpression(expression);
+            // Combine the predicates in andExpressions using AND operator
+            foreach (var expression in andExpressions)
+            {
+                combinedExpression = CombineExpression(combinedExpression, expression, Expression.AndAlso);
+            }
 
-            return expressionComparison;
+            // Combine the predicates in orExpressions using OR operator
+            foreach (var expression in orExpressions)
+            {
+                combinedExpression = CombineExpression(combinedExpression, expression, Expression.OrElse);
+            }
+
+            // If both andExpressions and orExpressions are empty, return an error
+            if (combinedExpression == null)
+            {
+                return Result.Failure<Expression<Func<T, bool>>>("No expressions found.");
+            }
+
+            return Result.Success(combinedExpression);
+        }
+
+        private static Expression<Func<T, bool>> CombineExpression<T>(Expression<Func<T, bool>> initialExpression, Expression<Func<T, bool>> expression, Func<Expression, Expression, BinaryExpression> combiner)
+        {
+            if (initialExpression == null)
+            {
+                return expression;
+            }
+
+            // Create a parameter expression to represent the lambda parameter 'x'
+            ParameterExpression parameter = expression.Parameters[0];
+
+            // Replace parameter expressions in the second expression with the parameter from the first expression
+            Expression body = new ReplaceExpressionVisitor(expression.Parameters[0], initialExpression.Parameters[0]).Visit(expression.Body);
+
+            return Expression.Lambda<Func<T, bool>>(combiner(initialExpression.Body, body), initialExpression.Parameters);
         }
     }
 
-    internal static class ExpresssionComparisonExt
+    internal class ReplaceExpressionVisitor : ExpressionVisitor
     {
+        private readonly Expression _source;
+        private readonly Expression _target;
 
-        internal static List<ExpressionComparison<T, TValue>> CreateList<T, TValue>(this ExpressionComparison<T, TValue> expressionComparison)
+        public ReplaceExpressionVisitor(Expression source, Expression target)
         {
-            return new List<ExpressionComparison<T, TValue>> { expressionComparison };
-        }
-    }
-
-    public class AsQuery
-    {
-        protected AsQuery(QueryOperation queryOperation)
-        {
-            QueryOperation = queryOperation;
+            _source = source;
+            _target = target;
         }
 
-        public static AsQuery<string> String(QueryString operation)
+        protected override Expression VisitParameter(ParameterExpression node)
         {
-            return AsQuery<string>.String<string>(operation);
-        }
-
-        public static AsQuery<TValue> Number<TValue>(QueryNumber operation) where TValue : INumber<TValue>
-        {
-            return AsQuery<TValue>.Numeric<TValue>(operation);
-        }
-
-        public static AsQuery<TValue?> NullableValue<TValue>(QueryNumber operation) where TValue : struct
-        {
-            return AsQuery<TValue?>.NullableValue<TValue>(operation);
-        }
-
-        public static AsQuery<DateTime> Date(QueryDate operation)
-        {
-            return AsQuery<DateTime>.Date<DateTime>(operation);
-        }
-
-        public static AsQuery<bool> Bool(QueryBool operation)
-        {
-            return AsQuery<bool>.Bool<bool>(operation);
-        }
-        private QueryOperation QueryOperation { get; }
-        public QueryOperation Get()
-        {
-            return QueryOperation;
+            return node == _source ? _target : base.VisitParameter(node);
         }
     }
 }

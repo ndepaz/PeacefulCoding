@@ -164,19 +164,28 @@ namespace CoolFluentHelpers
 
         private static BinaryExpression GetMethod(QueryOperation operation, MemberExpression memberExpression, ConstantExpression valueExpression)
         {
+            //Convert To memberExpression.Type
+
+            var convertedValue = Expression.Convert(valueExpression, memberExpression.Type);
+
             return operation switch
             {
-                QueryOperation.Equals => Expression.GreaterThan(memberExpression, valueExpression),
-                QueryOperation.LessThan => Expression.LessThan(memberExpression, valueExpression),
-                QueryOperation.LessThanOrEqual => Expression.LessThanOrEqual(memberExpression, valueExpression),
-                QueryOperation.GreaterThan => Expression.GreaterThan(memberExpression, valueExpression),
-                QueryOperation.GreaterThanOrEqual => Expression.GreaterThanOrEqual(memberExpression, valueExpression),
+                QueryOperation.Equals => Expression.Equal(memberExpression, convertedValue),
+                QueryOperation.LessThan => Expression.LessThan(memberExpression, convertedValue),
+                QueryOperation.LessThanOrEqual => Expression.LessThanOrEqual(memberExpression, convertedValue),
+                QueryOperation.GreaterThan => Expression.GreaterThan(memberExpression, convertedValue),
+                QueryOperation.GreaterThanOrEqual => Expression.GreaterThanOrEqual(memberExpression, convertedValue),
                 _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
             };
         }
 
         private static Result<MethodInfo> GetMethod(Type propertyType, QueryOperation operation)
         {
+            if (propertyType != typeof(string))
+            {
+                return Result.Failure<MethodInfo>($"Operation {operation} is not supported");
+            }
+
             MethodInfo method = operation switch
             {
                 QueryOperation.StartsWith => propertyType.GetMethod("StartsWith", new[] { propertyType }),

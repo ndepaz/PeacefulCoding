@@ -161,8 +161,8 @@ namespace CoolUnitTests
                 .ForProperty(x => x.Age, "Age");
 
             var expression = agePropertyExp
-                .Compare(AsQuery.Number<int>(QueryNumber.GreaterThan))
-                .WithValue(18)
+                .Compare(QueryOperation.GreaterThan)
+                .WithAnyValue(18)
                 .AsExpression().Value;
 
             Expression<Func<Person, bool>> expression2 = x => x.Age > 18;
@@ -232,7 +232,7 @@ namespace CoolUnitTests
 
             var expression = agePropertyExp
                 .Compare(queryOperation)
-                .WithValue(value)
+                .WithAnyValue(value)
                 .AsExpression().Value;
 
             var normalResult = people.AsQueryable().Where(expectedExpression);
@@ -243,52 +243,72 @@ namespace CoolUnitTests
         }
 
         [Theory]
-        [MemberData(nameof(PeopleWithDiffAge))]
-        public void we_can_find_and_evaluate_a_property(List<Person> people, QueryOperation queryOperation, object value, Expression<Func<Person, bool>> expectedExpression)
+        [MemberData(nameof(People))]
+        public void We_can_aggregate_expressions(List<Person> people)
         {
-            //arrange
             var builder = ExpressionBuilder<Person>.Create();
+
             var agePropertyExp = builder
                 .ForProperty(x => x.Age, "Age");
-            
-            var propertyDisplayName = "Age";
-            
-            var valueType = value.GetType();
 
-            var getPropertiesMethod = builder.GetType()
-                .GetMethods().First(x => x.Name == "GetProperties" && x.GetParameters().All(p=>p.ParameterType == typeof(string)))
-                .MakeGenericMethod(valueType);
-
-            var properties = (IEnumerable<object>)getPropertiesMethod.Invoke(builder, new object[] { propertyDisplayName });
-            
-            var foundProperty = properties.FirstOrDefault();
-
-            //assert
-            
-            agePropertyExp.Should().Be(foundProperty);
-            
-            //arrange
-
-            var compareMethod = foundProperty.GetType()
-                .GetMethod("Compare",new Type[] { queryOperation.GetType() });
-
-            var expressionValue = compareMethod.Invoke(foundProperty, new object[] { queryOperation });
-
-            var WithValue = expressionValue.GetType().GetMethod("WithValue");
-
-            var expressionComparison = WithValue.Invoke(expressionValue, new object[] { value });
-
-            var asExpression = expressionComparison.GetType().GetMethod("AsExpression");
-
-            var expressionResult = (Result<Expression<Func<Person, bool>>>) asExpression.Invoke(expressionComparison, null);
-            
-            //final assert
+            var expressionResult = agePropertyExp
+                .Compare(QueryOperation.GreaterThan)
+                .WithAnyValue(18)
+                .AndAlso()
+                .Compare(QueryOperation.LessThan)
+                .WithAnyValue(100)
+                .AsExpression();
 
             expressionResult.IsSuccess.Should().BeTrue();
 
+            var expression = expressionResult.Value;
+
+            Expression<Func<Person, bool>> expectedExpression = x => x.Age > 18 && x.Age < 100;
+
+            expression.Should().BeEquivalentTo(expectedExpression);
+
             var normalResult = people.AsQueryable().Where(expectedExpression);
 
-            var queryResult = people.AsQueryable().Where(expressionResult.Value);
+            var queryResult = people.AsQueryable().Where(expression);
+
+            queryResult.Should().BeEquivalentTo(normalResult);
+        }
+
+        [Theory]
+        [MemberData(nameof(PeopleWithDiffAge))]
+        public void We_can_find_and_evaluate_a_property(List<Person> people, QueryOperation queryOperation, object value, Expression<Func<Person, bool>> expectedExpression)
+        {
+            //arrange
+
+            var builder = ExpressionBuilder<Person>.Create();
+
+            var agePropertyExp = builder
+                .ForProperty(x => x.Age, "Age");
+
+            //act 
+            var result = builder.FindByPropertyDisplayName("Age");
+
+            result.IsSuccess.Should().BeTrue();
+
+            var property = result.Value;
+
+            property.Should().BeEquivalentTo(agePropertyExp);
+
+            var expressionResult = property
+                .Compare(queryOperation)
+                .WithAnyValue(value)
+                .AsExpression();
+
+            //assert
+            expressionResult.IsSuccess.Should().BeTrue();
+
+            var expression = expressionResult.Value;
+
+            expression.Should().BeEquivalentTo(expectedExpression);
+
+            var normalResult = people.AsQueryable().Where(expectedExpression);
+
+            var queryResult = people.AsQueryable().Where(expression);
 
             queryResult.Should().BeEquivalentTo(normalResult);
         }
