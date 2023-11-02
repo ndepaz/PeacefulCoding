@@ -28,37 +28,6 @@ namespace CoolFluentHelpers
         EndsWith,
         Contains,
     }
-    public enum QueryString
-    {
-
-        Equals,
-        StartsWith,
-        EndsWith,
-        Contains,
-    }
-
-    public enum QueryNumber
-    {
-        Equals,
-        LessThan,
-        LessThanOrEqual,
-        GreaterThan,
-        GreaterThanOrEqual,
-    }
-
-    public enum QueryDate
-    {
-        Equals,
-        LessThan,
-        LessThanOrEqual,
-        GreaterThan,
-        GreaterThanOrEqual,
-    }
-
-    public enum QueryBool
-    {
-        Equals,
-    }
 
     public class ExpressionBuilder<T> : IExpressionBuilder<T>
     {
