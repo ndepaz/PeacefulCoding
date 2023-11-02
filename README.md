@@ -6,20 +6,38 @@ This is useful when you need to pass arbitrary comparisons to a query while keep
 
 There is still more to come, but for now you can use it to create simple expressions with direct references to properties.
 
+QueryOperation are meant to be controlled by the developer as there isn't a easy way to narrow them by property type just yet.
+
 IEnumerables are not yet supported, but will be soon.
 
-## Example
+## Simple usage in UnitTest form
+Visit the unit tests project to learn more
 
 ```csharp
-var expression = ExpressionMaker.For<Person>().WithProperty(x => x.Name).Equals("Jane");
+//arrange
+var builder = ExpressionBuilder<Person>.Create();
 
-var expression2 = ExpressionMaker.For<Person>().WithProperty(x => x.Name).When(QueryOperation.Equals).Value("Jane");
+var agePropertyExp = builder
+    .ForProperty(x => x.Age)
+    .Compare(QueryOperation.GreaterThan)
+    .WithAnyValue(18)
+    .CombineWith(QueryClause.And)
+    .Compare(QueryOperation.LessThan)
+    .WithAnyValue(80);
 
-var expression3 = ExpressionMaker.For<Person>().WithProperty(x => x.Name).When(QueryOperation.StartsWith).Value("Ja");
+Expression<Func<Person, bool>> expectedExpression = x => x.Age > 18 && x.Age < 80;
 
-var expression4 = ExpressionMaker.For<Person>().WithProperty(x => x.Name).When(QueryOperation.Contains).Value("a");
+//act
 
-var expression5 = ExpressionMaker.For<Person>().WithProperty(x => x.Age).When(QueryOperation.LessThan).Value(18);
+var expressionResult = agePropertyExp.AsExpressionResult();
+
+//assert
+
+expressionResult.IsSuccess.Should().BeTrue();
+
+var expression = expressionResult.Value;
+
+expression.Should().BeEquivalentTo(expectedExpression);
 
 ```
 

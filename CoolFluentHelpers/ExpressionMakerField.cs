@@ -63,7 +63,15 @@ namespace CoolFluentHelpers
             };
         }
 
+        [Obsolete("AndIf is deprecated, please use OnlyIf instead for better clarity.")]
         public ExpressionMakerField<Model, Property> AndIf(bool condition)
+        {
+            _criteria = condition;
+
+            return this;
+        }
+
+        public ExpressionMakerField<Model, Property> OnlyIf(bool condition)
         {
             _criteria = condition;
 
@@ -75,7 +83,7 @@ namespace CoolFluentHelpers
             return _criteria;
         }
 
-        public Result<Expression<Func<Model,bool>>> ThenUseExpression(QueryOperation queryOperation, Property value)
+        public IResult<Expression<Func<Model,bool>>> ThenUseExpression(QueryOperation queryOperation, Property value)
         {
             if (!MeetsCriteria())
             {
@@ -128,10 +136,10 @@ namespace CoolFluentHelpers
             return this;
         }
 
-        public Expression<Func<Model, bool>> AsExpression()
+        public IResult<Expression<Func<Model, bool>>> AsExpression()
         {
             if (_andBooleanExpression == null && _orBooleanExpression == null)
-                return x=>false;
+                return Result.Failure<Expression<Func<Model, bool>>>("There are no expressions to use");
 
             Expression<Func<Model, bool>> andExpression = x => true;
             
@@ -144,9 +152,8 @@ namespace CoolFluentHelpers
             }
 
             if (_orBooleanExpression == null || _orBooleanExpression.Count == 0)
-                return andExpression;
+                return Result.Success(andExpression);
 
-            
             Expression<Func<Model, bool>> orExpression = x => false;
             
             foreach (var expression in _orBooleanExpression)
@@ -155,9 +162,9 @@ namespace CoolFluentHelpers
             }
 
             if(andCount == 0)
-                return orExpression;
+                return Result.Success(orExpression);
 
-            return ExpressionHelperExtensions.AndAlso(andExpression, orExpression);
+            return Result.Success(ExpressionHelperExtensions.AndAlso(andExpression, orExpression));
         }
     }
 
@@ -217,7 +224,7 @@ namespace CoolFluentHelpers
             return expressionMakerField;
         }
 
-        public Result<ExpressionMakerField<Model, Property>> FindBy(string displayName)
+        public IResult<ExpressionMakerField<Model, Property>> FindBy(string displayName)
         {
             if (!_expressionsMakerFields.ContainsKey(displayName))
                 return Result.Failure<ExpressionMakerField<Model, Property>>($"Field {displayName} not found");
@@ -229,6 +236,23 @@ namespace CoolFluentHelpers
         public IReadOnlyList<ExpressionMakerField<Model, Property>> ToList()
         {
             return _expressionsMakerFields.Values.ToList();
+        }
+
+        public IReadOnlyList<Expression<Func<Model, bool>>> GetValidExpressions(){
+            
+            var validExpressions = new List<Expression<Func<Model, bool>>>();
+
+            foreach (var field in ToList())
+            {
+                var result = field.AsExpression();
+
+                if (result.IsSuccess)
+                {
+                    validExpressions.Add(result.Value);
+                }
+            }
+
+            return validExpressions;
         }
     }
 }

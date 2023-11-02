@@ -171,11 +171,16 @@ namespace CoolFluentHelpers
             return Result.Failure<ICompareExpression<T>>("Property was not found");
         }
 
+        public IReadOnlyList<ICompareExpression<T>> FindPropertiesByDisplayName(string propertyDisplayName)
+        {
+            return compareExpressions.Where(x => x.PropertyDisplayName == propertyDisplayName).ToList();
+        }
     }
 
     public interface IExpressionBuilder<T>
     {
         IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName);
+        IReadOnlyList<ICompareExpression<T>> FindPropertiesByDisplayName(string propertyDisplayName);
         ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null);
     }
 
@@ -189,6 +194,8 @@ namespace CoolFluentHelpers
         internal TValue Value { get; private set; }
 
         internal bool IsAnd { get; private set; } = true;
+
+        private bool _isOnlyIf = true;
 
         private List<Expression<Func<T, bool>>> _expressionAndList = new();
         private List<Expression<Func<T, bool>>> _expressionOrList = new();
@@ -258,8 +265,25 @@ namespace CoolFluentHelpers
             this.Value = value;
         }
 
+        public ICompareExpression<T> OnlyIf(bool condition)
+        {
+            _isOnlyIf = condition;
+
+            return this;
+        }
+
+        private bool MeetOnlyCondition()
+        {
+            return _isOnlyIf;
+        }
+
         internal IResult<Expression<Func<T, bool>>> AsExpression()
         {
+            if (!MeetOnlyCondition())
+            {
+                return Result.Failure<Expression<Func<T, bool>>>("OnlyIf condition was not met");
+            }
+
             var andExpressionsList = _expressionAndList;
 
             var orExpressionsList = _expressionOrList;
@@ -302,7 +326,7 @@ namespace CoolFluentHelpers
         /// <param name="queryOperation"></param>
         /// <returns></returns>
         public ICompareValue<T> Compare(QueryOperation queryOperation);
-
+        ICompareExpression<T> OnlyIf(bool condition);
     }
 
     public interface ICompareAndOr<T>

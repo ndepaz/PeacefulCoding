@@ -15,7 +15,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v1
         with:
-          dotnet-version: "6.x.x" # Replace x with the desired version number
+          dotnet-version: "7.x.x" # Replace x with the desired version number
 
       - name: Get Release Tag Version
         id: get_release_version

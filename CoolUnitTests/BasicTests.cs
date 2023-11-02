@@ -45,7 +45,11 @@ namespace CoolUnitTests
 
             var exp2 = expWithProp.ThenUseExpression(QueryOperation.Equals, 7);
 
-            var list = people.AsQueryable().Where(expWithProp.AsExpression()).ToList();
+            var result = expWithProp.AsExpression();
+
+            result.IsSuccess.Should().BeTrue();
+
+            var list = people.AsQueryable().Where(result.Value).ToList();
 
             list.Should().NotBeEmpty();
         }
@@ -131,7 +135,39 @@ namespace CoolUnitTests
 
             foreach (var field in fieldList.ToList())
             {
-                var queryResult = people.AsQueryable().Where(field.AsExpression()).ToList();
+                var result = field.AsExpression();
+
+                result.IsSuccess.Should().BeTrue();
+
+                var queryResult = people.AsQueryable().Where(result.Value).ToList();
+
+                queryResult.Should().NotBeEmpty();
+            }
+        }
+
+        [Theory]
+        [MemberData(nameof(PeopleWithAge))]
+        public void Bind_through_list_test_with_and_clause_result(List<Person> people,QueryOperation operation, int age)
+        {
+            var fields = new List<ExpressionMakerField<Person, int>>();
+
+
+            var fieldList = ModelFieldList<Person, int?>.Create();
+
+            fieldList.Bind(x=>x.Age,"Age")
+                .WithAndExpression(operation,age);
+            
+            fieldList.Bind(x=>x.FavoriteNumber,"Favorite #")
+                .WithAndExpression(QueryOperation.LessThanOrEqual,100)
+                .WithAndExpression(QueryOperation.GreaterThan,0);
+
+            foreach (var field in fieldList.ToList())
+            {
+                var result = field.AsExpression();
+
+                result.IsSuccess.Should().BeTrue();
+
+                var queryResult = people.AsQueryable().Where(result.Value).ToList();
 
                 queryResult.Should().NotBeEmpty();
             }
@@ -152,7 +188,11 @@ namespace CoolUnitTests
 
             foreach (var field in fieldList.ToList())
             {
-                var queryResult = people.AsQueryable().Where(field.AsExpression()).ToList();
+                var result = field.AsExpression();
+
+                result.IsSuccess.Should().BeTrue();
+
+                var queryResult = people.AsQueryable().Where(result.Value).ToList();
 
                 queryResult.Should().NotBeEmpty();
             }
@@ -459,6 +499,65 @@ namespace CoolUnitTests
             var normalResult = people.AsQueryable().Where(expression);
 
             var queryResult = people.AsQueryable().Where(expression2);
+        }
+
+        [Theory]
+        [MemberData(nameof(People))]
+        public void only_if_some_condition_is_true(List<Person> people)
+        {
+
+            //arrange
+
+            var builder = ExpressionBuilder<Person>.Create();
+            var hasAPet = "does have a pet";
+
+            var result = builder
+                .ForProperty(x => x.Age)
+                .OnlyIf(hasAPet == "does have a pet")
+                .Compare(QueryOperation.GreaterThan)
+                .WithAnyValue(18)
+                .CombineWith(QueryClause.And)
+                .Compare(QueryOperation.LessThan)
+                .WithAnyValue(80)
+                .AsExpressionResult();
+
+            result.IsSuccess.Should().BeTrue();
+
+            var expression = result.Value;
+
+            Expression<Func<Person, bool>> expectedExpression = x => x.Age > 18 && x.Age < 80;
+
+            expression.Should().BeEquivalentTo(expectedExpression);
+
+            var normalResult = people.AsQueryable().Where(expectedExpression);
+
+            var queryResult = people.AsQueryable().Where(expression);
+
+            queryResult.Should().BeEquivalentTo(normalResult);
+
+        }
+
+        [Theory]
+        [MemberData(nameof(People))]
+        public void only_if_some_condition_is_false(List<Person> people)
+        {
+
+            //arrange
+
+            var builder = ExpressionBuilder<Person>.Create();
+            var hasAPet = "does NOT have a pet";
+
+            var result = builder
+                .ForProperty(x => x.Age)
+                .OnlyIf(hasAPet == "does have a pet")
+                .Compare(QueryOperation.GreaterThan)
+                .WithAnyValue(18)
+                .CombineWith(QueryClause.And)
+                .Compare(QueryOperation.LessThan)
+                .WithAnyValue(80)
+                .AsExpressionResult();
+
+            result.IsSuccess.Should().BeFalse();
         }
 
         [Theory]
