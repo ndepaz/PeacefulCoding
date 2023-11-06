@@ -57,6 +57,15 @@ namespace CoolFluentHelpers
             return expressionComparison;
         }
 
+        public IResult<ICompareExpression<T>> FirstPropertyByDisplayName(string propertyDisplayName)
+        {
+
+            var expressionComparison = compareExpressions.FirstOrDefault(x => x.PropertyDisplayName == propertyDisplayName);
+
+            return Result.SuccessIf(expressionComparison is not null, expressionComparison, "Property was not found");
+        }
+
+        [Obsolete("Use FirstPropertyByDisplayName instead. Obsolete due to Typo")]
         public IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName)
         {
 
@@ -73,8 +82,10 @@ namespace CoolFluentHelpers
 
     public interface IExpressionBuilder<T>
     {
+        [Obsolete("Use FirstPropertyByDisplayName instead. Obsolete due to Typo")]
         IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName);
         IReadOnlyList<ICompareExpression<T>> FindPropertiesByDisplayName(string propertyDisplayName);
+        IResult<ICompareExpression<T>> FirstPropertyByDisplayName(string propertyDisplayName);
         ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null);
     }
 
@@ -203,6 +214,11 @@ namespace CoolFluentHelpers
 
             return this;
         }
+
+        public Type GetPropertyType()
+        {
+            return typeof(TValue);
+        }
     }
 
     public interface ICompareExpression<T>
@@ -221,6 +237,8 @@ namespace CoolFluentHelpers
         /// <returns></returns>
         public ICompareValue<T> Compare(QueryOperation queryOperation);
         ICompareExpression<T> OnlyIf(bool condition);
+
+        Type GetPropertyType();
     }
 
     public interface ICompareAndOr<T>

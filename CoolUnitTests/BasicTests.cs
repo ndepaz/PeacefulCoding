@@ -553,6 +553,19 @@ namespace CoolUnitTests
 
             result.IsSuccess.Should().BeFalse();
         }
+
+        [Fact]
+        public void We_can_retrive_the_property_type()
+        {
+            var builder = ExpressionBuilder<Person>.Create();
+
+            var agePropertyExp = builder
+                .ForProperty(x => x.Age);
+
+            var type = agePropertyExp.GetPropertyType();
+
+            type.Should().Be(typeof(int));
+        }
     }
 
 
