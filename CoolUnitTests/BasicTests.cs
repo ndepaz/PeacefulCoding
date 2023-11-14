@@ -566,6 +566,26 @@ namespace CoolUnitTests
 
             type.Should().Be(typeof(int));
         }
+        [Fact]
+        public void we_can_get_all_properties_display_names()
+        {
+            var builder = ExpressionBuilder<Person>.Create();
+
+            builder
+                .ForProperty(x => x.Age, "Age").Compare(QueryOperation.GreaterThan);
+
+            builder
+                .ForProperty(x => x.Age, "Age").Compare(QueryOperation.LessThan);
+
+            builder.ForProperty(x => x.FavoriteNumber, "FavoriteNumber");
+
+            var dictionary = builder.GetPropertiesSupportedOperations();
+
+            dictionary.Should().NotBeEmpty();
+
+            dictionary.Keys.Should().Contain("Age", "FavoriteNumber");
+
+        }
 
         public static IEnumerable<object[]> DateTimeLookUp()
         {

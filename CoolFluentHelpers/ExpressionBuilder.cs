@@ -44,6 +44,25 @@ namespace CoolFluentHelpers
         {
             return new ExpressionBuilder<T>();
         }
+
+        public Dictionary<string, QueryOperation[]> GetPropertiesSupportedOperations()
+        {
+            var result = new Dictionary<string, QueryOperation[]>();
+
+            foreach (var expression in compareExpressions)
+            {
+                if (result.ContainsKey(expression.PropertyDisplayName))
+                {
+                    result[expression.PropertyDisplayName] = result[expression.PropertyDisplayName].Append(expression.GetQueryOperation()).ToArray();
+                }
+                else
+                {
+                    result.Add(expression.PropertyDisplayName, new[] { expression.GetQueryOperation() });
+                }
+            }
+            return result;
+        }
+
         public ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null)
         {
             if (displayName is null)
@@ -87,6 +106,11 @@ namespace CoolFluentHelpers
         IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName);
         IReadOnlyList<ICompareExpression<T>> FindPropertiesByDisplayName(string propertyDisplayName);
         IResult<ICompareExpression<T>> FirstPropertyByDisplayName(string propertyDisplayName);
+        /// <summary>
+        /// Key is the property display name, Value is the supported operations for that property
+        /// </summary>
+        /// <returns></returns>
+        Dictionary<string, QueryOperation[]> GetPropertiesSupportedOperations();
         ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null);
     }
 
@@ -220,6 +244,11 @@ namespace CoolFluentHelpers
         {
             return typeof(TValue);
         }
+
+        public QueryOperation GetQueryOperation()
+        {
+            return QueryOperation;
+        }
     }
 
     public interface ICompareExpression<T>
@@ -240,6 +269,11 @@ namespace CoolFluentHelpers
         ICompareExpression<T> OnlyIf(bool condition);
 
         Type GetPropertyType();
+        /// <summary>
+        /// All properties are initialized to QueryOperation Equals unless specified.
+        /// </summary>
+        /// <returns></returns>
+        public QueryOperation GetQueryOperation();
     }
 
     public interface ICompareAndOr<T>
