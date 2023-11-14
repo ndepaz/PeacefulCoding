@@ -182,14 +182,19 @@ namespace CoolFluentHelpers
             var parameter = Expression.Parameter(typeof(Model), "x");
             var memberExpression = GetNestedProperty(parameter, propertyName);
             var resultMethod = GetMethod(memberExpression.Type, operation);
-            var someValue = Expression.Constant(value, typeof(ModelPropValue));
 
             if (resultMethod.IsFailure)
             {
                 return PredicateBuilder.BuildPredicate(propertySelector, GetOperation(operation), value);
             }
 
-            var containsMethodExp = Expression.Call(memberExpression, resultMethod.Value, someValue);
+            Expression<Func<ModelPropValue>> valueSelector = () => value;
+
+            var valueBody = valueSelector.Body;
+
+            var convertedValue = Expression.Convert(valueBody, memberExpression.Type);
+
+            var containsMethodExp = Expression.Call(memberExpression, resultMethod.Value, convertedValue);
 
             return Expression.Lambda<Func<Model, bool>>(containsMethodExp, parameter);
         }
