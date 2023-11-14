@@ -1,22 +1,22 @@
 using CoolFluentHelpers;
 using CSharpFunctionalExtensions;
 using FluentAssertions;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using Xunit;
 using Xunit.Abstractions;
-
 namespace CoolUnitTests
 {
     public class BasicTests
     {
-        public ITestOutputHelper Output { get; }
+        public ITestOutputHelper _output { get; }
 
         public BasicTests(ITestOutputHelper output)
         {
-            Output = output;
+            _output = output;
         }
         [Theory]
         [MemberData(nameof(People))]
@@ -141,19 +141,19 @@ namespace CoolUnitTests
 
         [Theory]
         [MemberData(nameof(PeopleWithAge))]
-        public void Bind_through_list_test_with_and_clause_result(List<Person> people,QueryOperation operation, int age)
+        public void Bind_through_list_test_with_and_clause_result(List<Person> people, QueryOperation operation, int age)
         {
             var fields = new List<ExpressionMakerField<Person, int>>();
 
 
             var fieldList = ModelFieldList<Person, int?>.Create();
 
-            fieldList.Bind(x=>x.Age,"Age")
-                .WithAndExpression(operation,age);
-            
-            fieldList.Bind(x=>x.FavoriteNumber,"Favorite #")
-                .WithAndExpression(QueryOperation.LessThanOrEqual,100)
-                .WithAndExpression(QueryOperation.GreaterThan,0);
+            fieldList.Bind(x => x.Age, "Age")
+                .WithAndExpression(operation, age);
+
+            fieldList.Bind(x => x.FavoriteNumber, "Favorite #")
+                .WithAndExpression(QueryOperation.LessThanOrEqual, 100)
+                .WithAndExpression(QueryOperation.GreaterThan, 0);
 
             foreach (var field in fieldList.ToList())
             {
@@ -409,7 +409,7 @@ namespace CoolUnitTests
 
             agePropertyExp.Compare(QueryOperation.GreaterThan);
 
-            Expression<Func<Person, int>> propDerivedName = x => x.Age;  
+            Expression<Func<Person, int>> propDerivedName = x => x.Age;
 
             //act 
             var result = builder.FindByPropertyByDisplayName(propDerivedName.Body.ToString());
@@ -438,7 +438,7 @@ namespace CoolUnitTests
                 .Compare(QueryOperation.LessThan)
                 .WithAnyValue(80);
 
-            Expression<Func<Person,bool>> expression = x => x.Age > 18 || x.Age < 80;
+            Expression<Func<Person, bool>> expression = x => x.Age > 18 || x.Age < 80;
 
             //act
 
@@ -565,6 +565,116 @@ namespace CoolUnitTests
             var type = agePropertyExp.GetPropertyType();
 
             type.Should().Be(typeof(int));
+        }
+
+        public static IEnumerable<object[]> DateTimeLookUp()
+        {
+            var grandpa = new Person("John", DateTime.Now.Date.AddYears(-80));
+
+            grandpa.FavoriteNumber = 3;
+
+            var dad = new Person("John", DateTime.Now.Date.AddYears(-40));
+
+            dad.FavoriteNumber = 3;
+
+            var mom = new Person("Jane", DateTime.Now.Date.AddYears(-30));
+
+            mom.FavoriteNumber = 7;
+
+            var son = new Person("Bob", DateTime.Now.Date.AddYears(-15));
+
+            son.FavoriteNumber = 14;
+
+            var daughter = new Person("Elisa", DateTime.Now.Date.AddYears(-8));
+
+            daughter.FavoriteNumber = 8;
+
+            var kiddo = new Person("Bart", DateTime.Now.Date.AddYears(-4));
+
+            daughter.FavoriteNumber = 3;
+
+            mom.AddFamily(son, daughter, dad, grandpa);
+
+            dad.AddFamily(son, daughter, mom, grandpa);
+
+            var list = new List<Person> { dad, mom, son, daughter, kiddo, grandpa };
+
+            yield return new object[] { list, QueryOperation.Equals, dad.Born };
+            yield return new object[] { list, QueryOperation.NotEqual, dad.Born };
+            yield return new object[] { list, QueryOperation.GreaterThan, son.Born };
+            yield return new object[] { list, QueryOperation.GreaterThanOrEqual, son.Born };
+            yield return new object[] { list, QueryOperation.LessThanOrEqual, son.Born };
+            yield return new object[] { list, QueryOperation.LessThan, son.Born };
+
+        }
+
+        [Theory]
+        [MemberData(nameof(DateTimeLookUp))]
+        public void DateTime_Query_Operations(List<Person> people, QueryOperation operation, DateTime born)
+        {
+            //arrange
+
+            var builder = ExpressionBuilder<Person>.Create();
+
+            var agePropertyExp = builder
+                .ForProperty(x => x.Born)
+                .Compare(operation)
+                .WithAnyValue(born);
+
+            Expression<Func<Person, bool>> expression = null;
+
+            switch (operation)
+            {
+                case QueryOperation.Equals:
+                    expression = x => x.Born == born;
+                    break;
+                case QueryOperation.NotEqual:
+                    expression = x => x.Born != born;
+                    break;
+                case QueryOperation.GreaterThan:
+                    expression = x => x.Born > born;
+                    break;
+                case QueryOperation.GreaterThanOrEqual:
+                    expression = x => x.Born >= born;
+                    break;
+                case QueryOperation.LessThanOrEqual:
+                    expression = x => x.Born <= born;
+                    break;
+                case QueryOperation.LessThan:
+                    expression = x => x.Born < born;
+                    break;
+                default:
+                    break;
+            }
+
+            //act
+
+            var expressionResult = agePropertyExp.AsExpressionResult();
+
+            //assert
+
+            expressionResult.IsSuccess.Should().BeTrue();
+
+            var expression2 = expressionResult.Value;
+
+            expression2.Should().BeEquivalentTo(expression);
+
+            var normalResult = people.AsQueryable().Where(expression);
+
+            var queryResult = people.AsQueryable().Where(expression2);
+
+            normalResult.Should().BeEquivalentTo(queryResult);
+
+            JsonSerializerSettings settings = new JsonSerializerSettings
+            {
+                // Ignore reference loops instead of throwing an exception
+                ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+            };
+
+            // Now use these settings when serializing your object
+            string json = JsonConvert.SerializeObject(queryResult.ToList(), settings);
+
+            _output.WriteLine(json);
         }
     }
 

@@ -1,11 +1,7 @@
 ﻿using CSharpFunctionalExtensions;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace CoolFluentHelpers
 {
@@ -129,12 +125,59 @@ namespace CoolFluentHelpers
 
         }
     }
+    internal static class PredicateBuilder
+    {
+        public static Expression<Func<Model, bool>> BuildPredicate<Model, ModelPropValue>(
+            Expression<Func<Model, ModelPropValue>> propertySelector,
+            ExpressionType operation,
+            ModelPropValue value)
+        {
+            var propertyName = propertySelector.GetPropertyPath();
+            var parameterExp = propertySelector.Parameters[0];
+            var propertyExp = Expression.Property(parameterExp, propertyName);
+
+            // Create the param with a value
+
+            Expression<Func<ModelPropValue>> valueSelector = () => value;
+
+            var valueBody = valueSelector.Body;
+
+            var convertedValue = Expression.Convert(valueBody, propertyExp.Type);
+
+            // Build the binary expression based on the specified operation
+            BinaryExpression binaryExp = Expression.MakeBinary(operation, propertyExp, convertedValue);
+
+            // Construct the lambda expression and return it
+            return Expression.Lambda<Func<Model, bool>>(binaryExp, parameterExp);
+        }
+    }
 
     internal static class ExpressionBuilder
     {
-        internal static Expression<Func<Model, bool>> BuildPredicate<Model, ModelPropValue>(Expression<Func<Model, ModelPropValue>> expr, QueryOperation operation, ModelPropValue value)
+        internal static ExpressionType GetOperation(QueryOperation operation)
         {
-            var propertyName = expr.GetPropertyPath();
+            switch (operation)
+            {
+                case QueryOperation.Equals:
+                    return ExpressionType.Equal;
+                case QueryOperation.NotEqual:
+                    return ExpressionType.NotEqual;
+                case QueryOperation.GreaterThan:
+                    return ExpressionType.GreaterThan;
+                case QueryOperation.LessThan:
+                    return ExpressionType.LessThan;
+                case QueryOperation.GreaterThanOrEqual:
+                    return ExpressionType.GreaterThanOrEqual;
+                case QueryOperation.LessThanOrEqual:
+                    return ExpressionType.LessThanOrEqual;
+                default:
+                    throw new NotSupportedException($"The query operation '{operation}' is not supported.");
+            }
+        }
+
+        internal static Expression<Func<Model, bool>> BuildPredicate<Model, ModelPropValue>(Expression<Func<Model, ModelPropValue>> propertySelector, QueryOperation operation, ModelPropValue value)
+        {
+            var propertyName = propertySelector.GetPropertyPath();
 
             var parameter = Expression.Parameter(typeof(Model), "x");
             var memberExpression = GetNestedProperty(parameter, propertyName);
@@ -143,9 +186,7 @@ namespace CoolFluentHelpers
 
             if (resultMethod.IsFailure)
             {
-                var binaryExpression = GetMethod(operation, memberExpression, someValue);
-
-                return Expression.Lambda<Func<Model, bool>>(binaryExpression, parameter);
+                return PredicateBuilder.BuildPredicate(propertySelector, GetOperation(operation), value);
             }
 
             var containsMethodExp = Expression.Call(memberExpression, resultMethod.Value, someValue);
@@ -160,23 +201,6 @@ namespace CoolFluentHelpers
                 expression = Expression.PropertyOrField(expression, property);
             }
             return (MemberExpression)expression;
-        }
-
-        private static BinaryExpression GetMethod(QueryOperation operation, MemberExpression memberExpression, ConstantExpression valueExpression)
-        {
-            //Convert To memberExpression.Type
-
-            var convertedValue = Expression.Convert(valueExpression, memberExpression.Type);
-
-            return operation switch
-            {
-                QueryOperation.Equals => Expression.Equal(memberExpression, convertedValue),
-                QueryOperation.LessThan => Expression.LessThan(memberExpression, convertedValue),
-                QueryOperation.LessThanOrEqual => Expression.LessThanOrEqual(memberExpression, convertedValue),
-                QueryOperation.GreaterThan => Expression.GreaterThan(memberExpression, convertedValue),
-                QueryOperation.GreaterThanOrEqual => Expression.GreaterThanOrEqual(memberExpression, convertedValue),
-                _ => throw new ArgumentOutOfRangeException(nameof(operation), operation, null)
-            };
         }
 
         private static Result<MethodInfo> GetMethod(Type propertyType, QueryOperation operation)

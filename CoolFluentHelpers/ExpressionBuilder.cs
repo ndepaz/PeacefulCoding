@@ -27,6 +27,7 @@ namespace CoolFluentHelpers
         StartsWith,
         EndsWith,
         Contains,
+        NotEqual
     }
 
     public class ExpressionBuilder<T> : IExpressionBuilder<T>
@@ -309,7 +310,7 @@ namespace CoolFluentHelpers
 
             return OrElse();
         }
-        
+
         public ICompareExpression<T> OrElse()
         {
             _expressionComparison.ChangeCurrentToOr();
