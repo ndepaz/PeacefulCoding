@@ -45,7 +45,10 @@ namespace CoolFluentHelpers
         {
             return new ExpressionBuilder<T>();
         }
-
+        public void AddExpression(ICompareExpression<T> compareExpression)
+        {
+            compareExpressions.Add(compareExpression);
+        }
         public Dictionary<string, QueryOperation[]> GetPropertiesSupportedOperations()
         {
             var result = new Dictionary<string, QueryOperation[]>();
@@ -63,7 +66,10 @@ namespace CoolFluentHelpers
             }
             return result;
         }
-
+        public IExpressionBuilder<TValue> ForCollection<TValue>(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName = null)
+        {
+            return ExpressionBuilderForCollection<T, TValue>.Create(propertyExpression, displayName);
+        }
         public ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null)
         {
             if (displayName is null)
@@ -99,6 +105,8 @@ namespace CoolFluentHelpers
         {
             return compareExpressions.Where(x => x.PropertyDisplayName == propertyDisplayName).ToList();
         }
+
+
     }
 
     public interface IExpressionBuilder<T>

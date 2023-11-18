@@ -30,6 +30,22 @@ namespace CoolFluentHelpers
             // Construct the lambda expression and return it
             return Expression.Lambda<Func<Model, bool>>(binaryExp, parameterExp);
         }
+        public static Expression<Func<T, bool>> BuildCollectionPredicate<T, TElement>(
+                Expression<Func<T, IEnumerable<TElement>>> collectionSelector,
+                Expression<Func<TElement, bool>> elementPredicate,
+                bool all = false)
+        {
+            var param = Expression.Parameter(typeof(T), "x");
+
+            // Use `Any` or `All` based on the parameter "all"
+            var method = all ? "All" : "Any";
+            MethodInfo methodInfo = typeof(Enumerable).GetMethods().First(m => m.Name == method && m.GetParameters().Length == 2).MakeGenericMethod(typeof(TElement));
+
+            var collection = Expression.Invoke(collectionSelector, param);
+            var call = Expression.Call(methodInfo, collection, elementPredicate);
+
+            return Expression.Lambda<Func<T, bool>>(call, param);
+        }
     }
 
     internal static class ExpressionBuilder

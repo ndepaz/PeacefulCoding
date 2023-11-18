@@ -16,6 +16,7 @@ namespace CoolUnitTests
         public DateTime Born { get; set; }
         public int Age => CalculateAge(Born);
         public int? FavoriteNumber { get; set; }
+        public List<Pet> Pets { get; set; } = new();
         public static int CalculateAge(DateTime birthdate)
         {
             int age = DateTime.Today.Year - birthdate.Year;
@@ -37,6 +38,18 @@ namespace CoolUnitTests
         }
     }
 
+    public class Pet
+    {
+        public Pet()
+        {
+            
+        }
+        public string Name { get; }
 
+        public Pet(string name)
+        {
+            Name = name;
+        }
+    }
 
 }

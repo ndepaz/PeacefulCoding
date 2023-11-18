@@ -696,8 +696,51 @@ namespace CoolUnitTests
 
             _output.WriteLine(json);
         }
+        public static IEnumerable<object[]> PeopleWithPets()
+        {
+            var mom = new Person("Jane", DateTime.Now.AddYears(-30));
+            mom.Pets.Add(new Pet("Fido1"));
+
+            mom.FavoriteNumber = 7;
+
+            var son = new Person("Bob", DateTime.Now.AddYears(-15));
+            son.Pets.Add(new Pet("Fido2"));
+
+            son.FavoriteNumber = 14;
+
+            var daughter = new Person("Elisa", DateTime.Now.AddYears(-8));
+            daughter.Pets.Add(new Pet("Fido3"));
+
+            daughter.FavoriteNumber = 8;
+
+            mom.AddFamily(son, daughter);
+            mom.Pets.Add(new Pet("Fido4"));
+
+            var list = new List<Person> { mom, son, daughter };
+
+            yield return new object[] { list };
+        }
+        [Theory]
+        [MemberData(nameof(People))]
+        public void Collections_test(List<Person> people)
+        {
+
+            //arrange
+
+            var builder = ExpressionBuilder<Person>.Create();
+            
+            var result = builder
+                .ForCollection(x=>x.Pets)
+                .ForProperty(x => x.Name)
+                //.OnlyIf(hasAPet == "does have a pet")
+                .Compare(QueryOperation.GreaterThan)
+                .WithAnyValue(18)
+                .CombineWith(QueryClause.And)
+                .Compare(QueryOperation.LessThan)
+                .WithAnyValue(80)
+                .AsExpressionResult();
+        }
+
+
     }
-
-
-
 }
