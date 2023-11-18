@@ -2,6 +2,7 @@
 using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Numerics;
@@ -84,7 +85,7 @@ namespace CoolFluentHelpers
 
             return Result.SuccessIf(expressionComparison is not null, expressionComparison, "Property was not found");
         }
-
+        [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Use FirstPropertyByDisplayName instead. Obsolete due to Typo")]
         public IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName)
         {
@@ -102,6 +103,7 @@ namespace CoolFluentHelpers
 
     public interface IExpressionBuilder<T>
     {
+        [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Use FirstPropertyByDisplayName instead. Obsolete due to Typo")]
         IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName);
         IReadOnlyList<ICompareExpression<T>> FindPropertiesByDisplayName(string propertyDisplayName);
