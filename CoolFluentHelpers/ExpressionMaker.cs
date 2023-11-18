@@ -153,6 +153,37 @@ namespace CoolFluentHelpers
             return Expression.Lambda<Func<Model, bool>>(containsMethodExp, parameter);
         }
 
+        internal static Expression<Func<TModel, bool>> BuildPredicate<TModel, TProperty>(
+        Expression<Func<TModel, IEnumerable<TProperty>>> collectionExpr,
+        Expression<Func<TProperty, string>> propertyExpr,
+        QueryOperation operation,
+        string value)
+        {
+            var parameter = Expression.Parameter(typeof(TModel), "x");
+
+            // Get the collection property expression (e.g., x.Pets)
+            var collectionMemberExpr = collectionExpr.Body;
+
+            // Create a new parameter expression for the element type of the collection
+            var itemParam = Expression.Parameter(typeof(TProperty), "p");
+
+            // Replace parameter expressions in the property expression with the new parameter
+            var propertyBody = new ReplaceExpressionVisitor(propertyExpr.Parameters[0], itemParam).Visit(propertyExpr.Body);
+
+            // Apply the desired query operation using the property body and provided value
+            var predicateBody = GetMethod(operation, propertyBody, value);
+
+            // Combine the collection member expression with the resulting predicate body
+            var containsMethodExpr = Expression.Call(
+                typeof(Enumerable),
+                "Any",
+                new[] { typeof(TProperty) },
+                collectionMemberExpr,
+                Expression.Lambda<Func<TProperty, bool>>(predicateBody, itemParam));
+
+            return Expression.Lambda<Func<TModel, bool>>(containsMethodExpr, parameter);
+        }
+
         private static MemberExpression GetNestedProperty(Expression expression, string propertyName)
         {
             foreach (var property in propertyName.Split('.'))

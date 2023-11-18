@@ -32,74 +32,52 @@ namespace CoolFluentHelpers
     }
     public class NestedExpressionBuilder<T, TValue> : ExpressionBuilder<TValue>
     {
-        private readonly Expression<Func<T, IEnumerable<TValue>>> propertyExpression;
-        private readonly string displayName;
-        private readonly ExpressionBuilder<T> parentBuilder;
-        private readonly string nestedBasePropertyExpressionPath;
+        private readonly Expression<Func<T, IEnumerable<TValue>>> _enumerablePropertyExpression;
+        private readonly string _displayName;
+        private readonly ExpressionBuilder<T> _parentBuilder;
+        private readonly string _nestedBasePropertyExpressionPath;
 
-        public NestedExpressionBuilder(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName, ExpressionBuilder<T> parentBuilder, string basePropertyExpressionPath)
+        private NestedExpressionBuilder(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName, ExpressionBuilder<T> parentBuilder)
         {
-            this.propertyExpression = propertyExpression;
-            this.displayName = displayName;
-            this.parentBuilder = parentBuilder;
-            this.nestedBasePropertyExpressionPath = basePropertyExpressionPath;
+            _enumerablePropertyExpression = propertyExpression;
+            _displayName = displayName;
+            _parentBuilder = parentBuilder;
         }
-        public static Expression GetExpressionProp(ParameterExpression parameterExpression, string propertyName)
+
+        public static NestedExpressionBuilder<T, TValue> Create(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName, ExpressionBuilder<T> parentBuilder)
         {
-            Expression body = parameterExpression;
-            foreach (var member in propertyName.Split('.'))
-            {
-                body = Expression.PropertyOrField(body, member);
-            }
-            return body;
+            return new NestedExpressionBuilder<T, TValue>(propertyExpression, displayName, parentBuilder);
         }
-        public ICompareExpression<T> ForProperty<TNestedValue>(Expression<Func<TValue, TNestedValue>> propertyExpression, string nestedDisplayName = null)
+
+        public static Expression<Func<TItem, bool>> PropertyContains<TItem, TProperty>(
+            Expression<Func<TItem, IEnumerable<TProperty>>> selectList,
+            Expression<Func<TProperty, bool>> whereClause)
+                {
+                    var listParameter = selectList.Parameters[0];
+                    var propPredicate = whereClause.Body;
+
+                    var listSelector = selectList.Body;
+
+                    var anyMethod = typeof(Enumerable).GetMethods()
+                        .First(m => m.Name == "Any" && m.GetParameters().Length == 2)
+                        .MakeGenericMethod(typeof(TProperty));
+
+                    var anyExpression = Expression.Call(anyMethod, listSelector, whereClause);
+
+                    return Expression.Lambda<Func<TItem, bool>>(anyExpression, listParameter);
+        }
+
+        public ICompareExpression<T, TValue> ForNestedProperty<TNestedValue>(Expression<Func<TValue, TNestedValue>> nestedPropertyExpression, string nestedDisplayName = null)
         {
             if (nestedDisplayName is null)
             {
-                nestedDisplayName = propertyExpression.Body.ToString();
+                nestedDisplayName = nestedPropertyExpression.Body.ToString();
             }
 
-            var targetType = typeof(T);
-            //public const string collectionName =  "<CollectionName>.<ModelName>.<PropertyName>";
-            //type is Animal
-            //var lambda = ExpressionHelper.GetStringValueFromCollection<MainModel>(collectionName, propertyName, operatorName, searchValue, type);
-
-            var lastPropertyName = propertyExpression.Body.ToString().Split(".").Last();
-
-            var propertyName = $"{nestedBasePropertyExpressionPath}.{lastPropertyName}";
-
-            var delegateType = typeof(Func<,>).MakeGenericType(targetType, typeof(bool));
-            var parameterExp = Expression.Parameter(targetType, "o");
-            var propertyExp = GetExpressionProp(parameterExp, propertyName);
-
-            //Get Method from propertyExpression
-
-            var methodInfoFromPropertyExpression = propertyExpression.Body.GetType().GetMethod("StartsWith");
-            var value = propertyExpression.Parameters[0].ToString();
-            //MethodInfo method = typeof(string).GetMethod(methodName, new[] { typeof(string) });
-            var someValue = Expression.Constant(value, typeof(string));
-            var containsMethodExp = Expression.Call(propertyExp, methodInfoFromPropertyExpression, someValue);
-            var predicate = Expression.Lambda(delegateType, containsMethodExp, parameterExp);
-
-            //var org = Expression.Parameter(typeof(Entity), "org");
-            //var body = Expression.Call(typeof(Enumerable), "Any", new[] { targetType },
-            //    Expression.PropertyOrField(org, collectionPropName), predicate);
-            //var expression = Expression.Lambda<Func<Entity, bool>>(body, org);
-            //return expression;
-
-            var org = Expression.Parameter(typeof(T), "x");
-            
-            var body = Expression.Call(typeof(Enumerable), "Any", new[] { targetType },
-                Expression.PropertyOrField(org, propertyName), predicate );
-
-            var expression = Expression.Lambda<Func<T, bool>>(body, org);
-
-
-            var nestedExpressionComparison =
-                parentBuilder.ForProperty(expression, $"{this.displayName}.{nestedDisplayName}");
+            ICompareExpression<T, TValue> nestedExpressionComparison = ExpressionComparison<T, TValue, TNestedValue>.Create(nestedDisplayName, nestedPropertyExpression, _enumerablePropertyExpression);
 
             return nestedExpressionComparison;
+
         }
     }
 
@@ -142,11 +120,8 @@ namespace CoolFluentHelpers
                 displayName = propertyExpression.Body.ToString();
             }
         
-            var nestedBuilder = new NestedExpressionBuilder<T, TValue>(propertyExpression, displayName, this, propertyExpression.GetPropertyPath());
+            var nestedBuilder = NestedExpressionBuilder<T, TValue>.Create(propertyExpression, displayName, this);
             
-
-            //nestedBuilders.Add((IExpressionBuilder<T>)nestedBuilder);
-
             return nestedBuilder;
         }
 
@@ -311,7 +286,25 @@ namespace CoolFluentHelpers
         }
     }
 
-    public interface ICompareExpression<T>
+public interface ICompareExpression<Base,Sub>
+{
+    string PropertyDisplayName { get; }
+    /// <summary>
+    /// Deault QueryOperation can be Equals or a predefined QueryOperation by calling Compare(QueryOperation queryOperation) before calling CompareWithDefault()
+    /// </summary>
+    /// <returns></returns>
+    public ICompareValue<Base,Sub> CompareWithDefault();
+
+    /// <summary>
+    /// Set the QueryOperation to be used by default
+    /// </summary>
+    /// <param name="queryOperation"></param>
+    /// <returns></returns>
+    public ICompareValue<Base, Sub> Compare(QueryOperation queryOperation);
+    ICompareExpression<Base> OnlyIf(bool condition);
+}
+
+public interface ICompareExpression<T>
     {
         string PropertyDisplayName { get; }
         /// <summary>

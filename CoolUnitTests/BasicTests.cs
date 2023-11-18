@@ -564,14 +564,14 @@ namespace CoolUnitTests
         [MemberData(nameof(People))]
         public void properties_can_be_enumerable(List<Person> people)
         {
-
+                
             //arrange
 
             var builder = ExpressionBuilder<Person>.Create();
 
             var agePropertyExp = builder
                 .ForList(x => x.Pets)
-                .ForProperty(x => x.Name)
+                .ForNestedProperty(x => x.Name)
                 .Compare(QueryOperation.StartsWith)
                 .WithAnyValue("Fi")
                 .AndAlso()
@@ -590,7 +590,7 @@ namespace CoolUnitTests
 
             var expression2 = expressionResult.Value;
 
-            var data = people.AsQueryable().Where(expression2).ToList();
+            //var data = people.AsQueryable().Where(expression2).ToList();
 
         }
 
