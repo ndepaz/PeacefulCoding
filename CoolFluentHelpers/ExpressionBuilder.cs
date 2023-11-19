@@ -34,9 +34,9 @@ namespace CoolFluentHelpers
     public class ExpressionBuilder<T> : IExpressionBuilder<T>
     {
 
-        private List<ICompareExpression<T>> compareExpressions = new();
+        protected List<ICompareExpression<T>> compareExpressions = new();
 
-        private ExpressionBuilder()
+        protected ExpressionBuilder()
         {
 
         }
@@ -66,7 +66,7 @@ namespace CoolFluentHelpers
             }
             return result;
         }
-        public IExpressionBuilder<TValue> ForCollection<TValue>(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName = null)
+        public IForCollectionBuilder<T, TValue> ForCollection<TValue>(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName = null)
         {
             return ExpressionBuilderForCollection<T, TValue>.Create(propertyExpression, displayName);
         }

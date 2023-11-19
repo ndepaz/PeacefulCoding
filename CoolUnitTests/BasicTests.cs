@@ -721,7 +721,7 @@ namespace CoolUnitTests
             yield return new object[] { list };
         }
         [Theory]
-        [MemberData(nameof(People))]
+        [MemberData(nameof(PeopleWithPets))]
         public void Collections_test(List<Person> people)
         {
 
@@ -731,14 +731,30 @@ namespace CoolUnitTests
             
             var result = builder
                 .ForCollection(x=>x.Pets)
-                .ForProperty(x => x.Name)
-                //.OnlyIf(hasAPet == "does have a pet")
-                .Compare(QueryOperation.GreaterThan)
-                .WithAnyValue(18)
-                .CombineWith(QueryClause.And)
-                .Compare(QueryOperation.LessThan)
-                .WithAnyValue(80)
+                .WithProperty(x => x.Name)
+                .OnlyIf(true)
+                .Compare(QueryOperation.StartsWith)
+                .WithAnyValue("Fi")
+                .AndAlso()
+                .Compare(QueryOperation.Contains)
+                .WithAnyValue("2")
+                .OrElse()
+                .Compare(QueryOperation.EndsWith)
+                .WithAnyValue("3")
                 .AsExpressionResult();
+
+            result.IsSuccess.Should().BeTrue();
+
+            Expression<Func<Person, bool>> expression = x => x.Pets.Any(y=>y.Name.StartsWith("Fi") && y.Name.Contains("2") || y.Name.EndsWith("3"));
+            
+            result.Value.Should().BeEquivalentTo(expression);
+            
+            var list = people.AsQueryable().Where(result.Value);
+
+            var list2 = people.AsQueryable().Where(expression);
+
+            list.Should().BeEquivalentTo(list2);
+
         }
 
 
