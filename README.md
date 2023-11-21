@@ -1,6 +1,6 @@
 # PeacefulCoding
 
-You can use Expression Maker to allow you to create dynamic Expressions.
+You can use ExpressionBuilder to allow you to create dynamic Expressions.
 
 This is useful when you need to pass arbitrary comparisons to a query while keeping a stronlgy typed approach.
 
@@ -52,7 +52,7 @@ var result = builder
     .OnlyIf(true)
     .Compare(QueryOperation.EndsWith)
     .WithAnyValue("4")
-    .AsExpressionResult();
+    .AsAnyExpressionResult();
 
 result.IsSuccess.Should().BeTrue();
 
@@ -67,7 +67,8 @@ var list2 = people.AsQueryable().Where(stronglyTypedVersionExpression);
 list.Should().BeEquivalentTo(list2);
 ```
 
-You can chain different combinations of clauses and operations to create complex expressions.
+### You can chain different combinations of clauses and operations to create complex expressions.
+
 ```csharp
 var builder = ExpressionBuilder<Person>.ForCollections();
             
@@ -89,7 +90,7 @@ var result = builder
     .OrElse()
     .Compare(QueryOperation.EndsWith)
     .WithAnyValue("1")
-    .AsExpressionResult();
+    .AsAnyExpressionResult();
 
 result.IsSuccess.Should().BeTrue();
 
@@ -107,8 +108,11 @@ list.Should().BeEquivalentTo(list2);
 
 ## Release Notes
 
-### v3.12.12
-- Added support for IEnumerables
+### v3.13.12
+- Added support for Collections allowing you to create expressions for multiple properties under the same collection.
+  - In addition adds support for the following operations under collections:
+    - AsAnyExpressionResult
+    - AsAllExpressionResult
 - Corrected the order of operations by implementing the necessary changes in the affected code.
 - Conducted comprehensive testing to verify the fix and ensure proper functionality.
 - With this correction, the package now executes operations according to the correct order, ensuring accurate results and expected behavior.

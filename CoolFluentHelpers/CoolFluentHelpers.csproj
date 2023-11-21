@@ -9,7 +9,7 @@
     <Title>CoolFluentHelpers</Title>
     <Copyright>Copyright (c) 2023 Noe de Paz &lt;ndepaz2016@gmail.com&gt;</Copyright>
     <RepositoryUrl>https://github.com/ndepaz/PeacefulCoding</RepositoryUrl>
-    <PackageTags>v3.12.12</PackageTags>
+    <PackageTags>v3.13.12</PackageTags>
     <PackageReleaseNotes>initial</PackageReleaseNotes>
     <PackageProjectUrl>https://github.com/ndepaz/PeacefulCoding</PackageProjectUrl>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
@@ -18,7 +18,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>programming_fun.png</PackageIcon>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Version>3.12.12</Version>
+    <Version>3.13.12</Version>
   </PropertyGroup>
 
   <ItemGroup>

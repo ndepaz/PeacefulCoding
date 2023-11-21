@@ -265,7 +265,8 @@ namespace CoolFluentHelpers
         /// Returns the combined expressions as a single expression
         /// </summary>
         /// <returns></returns>
-        public Result<Expression<Func<RootModel, bool>>> AsExpressionResult();
+        public Result<Expression<Func<RootModel, bool>>> AsAnyExpressionResult();
+        public Result<Expression<Func<RootModel, bool>>> AsAllExpressionResult();
     }
     public interface ICompareValueForCollection<RootModel>
     {
@@ -334,7 +335,7 @@ namespace CoolFluentHelpers
         
         }
 
-        public Result<Expression<Func<RootModel, bool>>> AsExpressionResult()
+        public Result<Expression<Func<RootModel, bool>>> AsAnyExpressionResult()
         {
 
             try
@@ -349,6 +350,27 @@ namespace CoolFluentHelpers
                 }
 
                 return Result.Success(PredicateBuilder.BuildCollectionPredicate(collectionSelector, result.Value, false));
+            }
+            catch (Exception e)
+            {
+                return Result.Failure<Expression<Func<RootModel, bool>>>(e.Message);
+            }
+        }
+
+        public Result<Expression<Func<RootModel, bool>>> AsAllExpressionResult()
+        {
+            try
+            {
+                _expressionComparison.AddExpressionsList(WithValue((TValue)_value));
+
+                var result = _expressionComparison.AsExpression();
+
+                if (result.IsFailure)
+                {
+                    return Result.Failure<Expression<Func<RootModel, bool>>>(result.Error);
+                }
+
+                return Result.Success(PredicateBuilder.BuildCollectionPredicate(collectionSelector, result.Value, true));
             }
             catch (Exception e)
             {

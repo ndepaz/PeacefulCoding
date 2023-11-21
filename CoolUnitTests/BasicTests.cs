@@ -744,7 +744,7 @@ namespace CoolUnitTests
                 .OrElse()
                 .Compare(QueryOperation.EndsWith)
                 .WithAnyValue("1")
-                .AsExpressionResult();
+                .AsAnyExpressionResult();
 
             result.IsSuccess.Should().BeTrue();
 
@@ -772,11 +772,38 @@ namespace CoolUnitTests
                 .OnlyIf(true)
                 .Compare(QueryOperation.EndsWith)
                 .WithAnyValue("4")
-                .AsExpressionResult();
+                .AsAnyExpressionResult();
 
             result.IsSuccess.Should().BeTrue();
 
             Expression<Func<Person, bool>> stronglyTypedVersionExpression = x => x.Pets.Any(y => y.Name.EndsWith("4") );
+
+            result.Value.Should().BeEquivalentTo(stronglyTypedVersionExpression);
+
+            var list = people.AsQueryable().Where(result.Value);
+
+            var list2 = people.AsQueryable().Where(stronglyTypedVersionExpression);
+
+            list.Should().BeEquivalentTo(list2);
+        }
+
+        [Theory]
+        [MemberData(nameof(PeopleWithPets))]
+        public void single_collection_expression_all(List<Person> people)
+        {
+            var builder = ExpressionBuilder<Person>.ForCollections();
+
+            var result = builder
+                .ForCollection(x => x.Pets)
+                .ForProperty(x => x.Name)
+                .OnlyIf(true)
+                .Compare(QueryOperation.StartsWith)
+                .WithAnyValue("Fi")
+                .AsAllExpressionResult();
+
+            result.IsSuccess.Should().BeTrue();
+
+            Expression<Func<Person, bool>> stronglyTypedVersionExpression = x => x.Pets.All(y => y.Name.StartsWith("Fi"));
 
             result.Value.Should().BeEquivalentTo(stronglyTypedVersionExpression);
 
@@ -803,7 +830,7 @@ namespace CoolUnitTests
                 .CombineWith(QueryClause.And)
                 .Compare(QueryOperation.StartsWith)
                 .WithAnyValue("Fido")
-                .AsExpressionResult();
+                .AsAnyExpressionResult();
 
             result.IsSuccess.Should().BeTrue();
 
@@ -834,7 +861,7 @@ namespace CoolUnitTests
                 .CombineWith(QueryClause.Or)
                 .Compare(QueryOperation.StartsWith)
                 .WithAnyValue("Fido")
-                .AsExpressionResult();
+                .AsAnyExpressionResult();
 
             result.IsSuccess.Should().BeTrue();
 
@@ -919,7 +946,7 @@ namespace CoolUnitTests
                 .OnlyIf(true)
                 .Compare(QueryOperation.GreaterThan)
                 .WithAnyValue("4")
-                .AsExpressionResult();
+                .AsAnyExpressionResult();
 
             result.IsSuccess.Should().BeFalse();
         }
@@ -945,7 +972,7 @@ namespace CoolUnitTests
             var result = property2
                 .CompareWithDefault()
                 .WithAnyValue("Fido1")
-                .AsExpressionResult();
+                .AsAnyExpressionResult();
 
             //assert
 
@@ -973,7 +1000,7 @@ namespace CoolUnitTests
                 .ForProperty(x => x.Name)
                 .Compare(QueryOperation.GreaterThan)
                 .WithAnyValue(18)
-                .AsExpressionResult();
+                .AsAnyExpressionResult();
 
             result.IsSuccess.Should().BeFalse();
         }
@@ -990,7 +1017,7 @@ namespace CoolUnitTests
                 .OnlyIf(false)
                 .Compare(QueryOperation.GreaterThan)
                 .WithAnyValue(18)
-                .AsExpressionResult();
+                .AsAnyExpressionResult();
 
             result.IsSuccess.Should().BeFalse();
         }
