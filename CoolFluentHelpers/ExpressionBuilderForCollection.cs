@@ -93,6 +93,22 @@ namespace CoolFluentHelpers
         ICompareExpressionForCollection<RootModel, T> WithProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null);
     }
 
+    public class ClauseWithExpression<T>
+    {
+        public Expression<Func<T, bool>> Expression { get; set; }
+        public QueryClause Clause { get; set; }
+        private ClauseWithExpression(Expression<Func<T, bool>> expression, QueryClause clause)
+        {
+            Expression = expression;
+            Clause = clause;
+        }
+
+        public static ClauseWithExpression<T> Create(Expression<Func<T, bool>> expression, QueryClause clause)
+        {
+            return new ClauseWithExpression<T>(expression, clause);
+        }
+    }
+
     public interface ICompareExpressionForCollection<RootModel, T>
     {
         ICompareValueForCollection<RootModel, T> Compare(QueryOperation queryOperation);
@@ -105,30 +121,27 @@ namespace CoolFluentHelpers
         internal Expression<Func<T, TValue>> PropertyExpression { get; }
         public string PropertyDisplayName { get; }
 
-        internal QueryOperation QueryOperation { get; private set; }
+        internal QueryOperation CurrentQueryOperation { get; private set; }
 
         internal TValue Value { get; private set; }
 
-        internal bool IsAnd { get; private set; } = true;
+        internal QueryClause CurrentQueryClause { get; private set; }
 
         private bool _isOnlyIf = true;
 
-        private List<Expression<Func<T, bool>>> _expressionAndList = new();
-        private List<Expression<Func<T, bool>>> _expressionOrList = new();
+        private List<ClauseWithExpression<T>> _expressionAndList = new();
+        //private List<Expression<Func<T, bool>>> _expressionOrList = new();
         private Expression<Func<RootModel, IEnumerable<T>>> collectionSelector;
 
-        private ExpressionComparisonForCollection(Expression<Func<T, TValue>> propertyExpression, string propertyDisplayName)
+        private ExpressionComparisonForCollection(Expression<Func<T, TValue>> propertyExpression,
+                string propertyDisplayName,
+                TValue value,
+                QueryOperation queryOperation
+            )
         {
             PropertyExpression = propertyExpression;
             PropertyDisplayName = propertyDisplayName;
-
-        }
-
-        private ExpressionComparisonForCollection(Expression<Func<T, TValue>> propertyExpression, string propertyDisplayName, TValue value, QueryOperation queryOperation)
-        {
-            PropertyExpression = propertyExpression;
-            PropertyDisplayName = propertyDisplayName;
-            QueryOperation = queryOperation;
+            CurrentQueryOperation = queryOperation;
             Value = value;
         }
 
@@ -139,14 +152,15 @@ namespace CoolFluentHelpers
             PropertyDisplayName = propertyDisplayName;
         }
 
-        internal static ExpressionComparisonForCollection<RootModel,T, TValue> Copy(ExpressionComparisonForCollection<RootModel,T, TValue> expressionComparison)
+        internal static ExpressionComparisonForCollection<RootModel,T, TValue> StoreComparisonAndQueryInfo(ExpressionComparisonForCollection<RootModel,T, TValue> expressionComparison)
         {
             return new ExpressionComparisonForCollection<RootModel,T, TValue>(
                 expressionComparison.PropertyExpression,
                 expressionComparison.PropertyDisplayName,
                 expressionComparison.Value,
-                expressionComparison.QueryOperation)
-                .ChangeCurrentAndOrClause(expressionComparison.IsAnd);
+                expressionComparison.CurrentQueryOperation
+                )
+                .ChangeCurrentClause(expressionComparison.CurrentQueryClause);
         }
 
         internal static ExpressionComparisonForCollection<RootModel,T, TValue> Create(Expression<Func<RootModel, IEnumerable<T>>> collectionSelector, string propertyDisplayName, Expression<Func<T, TValue>> propertyExpression)
@@ -161,26 +175,28 @@ namespace CoolFluentHelpers
 
         public ICompareValueForCollection<RootModel, T> Compare(QueryOperation queryOperation)
         {
-            QueryOperation = queryOperation;
+            CurrentQueryOperation = queryOperation;
 
             return ExpressionValueForCollection<RootModel,T, TValue>.Create(collectionSelector,this);
         }
 
-        private ExpressionComparisonForCollection<RootModel,T, TValue> ChangeCurrentAndOrClause(bool useAnd)
+        internal ExpressionComparisonForCollection<RootModel,T, TValue> ChangeCurrentClause(QueryClause queryClause)
         {
-            IsAnd = useAnd;
+            CurrentQueryClause = queryClause;
 
             return this;
         }
 
         internal ExpressionComparisonForCollection<RootModel,T, TValue> ChangeCurrentToAnd()
         {
-            return ChangeCurrentAndOrClause(true);
+            CurrentQueryClause = QueryClause.And;
+            return this;
         }
 
         internal ExpressionComparisonForCollection<RootModel,T, TValue> ChangeCurrentToOr()
         {
-            return ChangeCurrentAndOrClause(false);
+            CurrentQueryClause = QueryClause.Or;
+            return this;
         }
 
         internal void SetValue(TValue value)
@@ -209,29 +225,29 @@ namespace CoolFluentHelpers
 
             var andExpressionsList = _expressionAndList;
 
-            var orExpressionsList = _expressionOrList;
+            //var orExpressionsList = _expressionOrList;
 
-            return ExpressionCombiner.CombineExpressions(andExpressionsList, orExpressionsList);
+            return ExpressionCombiner.CombineExpressionsInOrder(andExpressionsList);
         }
 
-        internal ICompareExpressionForCollection<RootModel, T> AddExpressionsToAndList(ExpressionComparisonForCollection<RootModel,T, TValue> expressionComparison)
+        internal ICompareExpressionForCollection<RootModel, T> AddExpressionsToList(ExpressionComparisonForCollection<RootModel,T, TValue> expressionComparison)
         {
 
-            var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, expressionComparison.Value);
+            var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.CurrentQueryOperation, expressionComparison.Value);
 
-            _expressionAndList.Add(expression);
+            _expressionAndList.Add(ClauseWithExpression<T>.Create(expression, CurrentQueryClause));
 
             return this;
         }
 
-        internal ICompareExpressionForCollection<RootModel, T> AddExpressionsToOrList(ExpressionComparisonForCollection<RootModel,T, TValue> expressionComparison)
-        {
-            var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, expressionComparison.Value);
+        //internal ICompareExpressionForCollection<RootModel, T> AddExpressionsToOrList(ExpressionComparisonForCollection<RootModel,T, TValue> expressionComparison)
+        //{
+        //    var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.CurrentQueryOperation, expressionComparison.Value);
 
-            _expressionOrList.Add(expression);
+        //    _expressionAndList.Add(expression);
 
-            return this;
-        }
+        //    return this;
+        //}
 
         public Type GetPropertyType()
         {
@@ -240,7 +256,7 @@ namespace CoolFluentHelpers
 
         public QueryOperation GetQueryOperation()
         {
-            return QueryOperation;
+            return CurrentQueryOperation;
         }
     }
 
@@ -264,6 +280,7 @@ namespace CoolFluentHelpers
     {
         ICompareAndOrForCollection<RootModel, T> WithAnyValue(object value);
     }
+    
     public class ExpressionValueForCollection<RootModel,T, TValue> : ICompareValueForCollection<RootModel,T>, ICompareAndOrForCollection<RootModel, T>
     {
         private object _value;
@@ -286,12 +303,14 @@ namespace CoolFluentHelpers
         {
             _expressionComparison.SetValue(value);
 
-            return ExpressionComparisonForCollection<RootModel,T, TValue>.Copy(_expressionComparison);
+            return ExpressionComparisonForCollection<RootModel,T, TValue>.StoreComparisonAndQueryInfo(_expressionComparison);
         }
 
         public ICompareAndOrForCollection<RootModel, T> WithAnyValue(object value)
         {
+
             _value = value;
+            //SetToOriginClause();
 
             return this;
         }
@@ -308,29 +327,30 @@ namespace CoolFluentHelpers
 
         public ICompareExpressionForCollection<RootModel, T> OrElse()
         {
-            _expressionComparison.ChangeCurrentToOr();
 
-            return _expressionComparison.AddExpressionsToOrList(WithValue((TValue)_value));
+
+            var instance = _expressionComparison.AddExpressionsToList(WithValue((TValue)_value));
+            _expressionComparison.ChangeCurrentClause(QueryClause.Or);
+
+            return instance;
         }
 
         public ICompareExpressionForCollection<RootModel, T> AndAlso()
         {
-            _expressionComparison.ChangeCurrentToAnd();
+            var instance = _expressionComparison.AddExpressionsToList(WithValue((TValue)_value));
 
-            return _expressionComparison.AddExpressionsToAndList(WithValue((TValue)_value));
+            _expressionComparison.ChangeCurrentClause(QueryClause.And);
+
+            return instance;
+        
         }
 
         public Result<Expression<Func<RootModel, bool>>> AsExpressionResult()
         {
-            if (_expressionComparison.IsAnd)
-            {
-                AndAlso();
-            }
-            else
-            {
-                OrElse();
-            }
+            _expressionComparison.AddExpressionsToList(WithValue((TValue)_value));
+
             var result = _expressionComparison.AsExpression();
+
             if (result.IsFailure)
             {
                 return Result.Failure<Expression<Func<RootModel, bool>>>(result.Error);
@@ -339,8 +359,6 @@ namespace CoolFluentHelpers
             return Result.Success(PredicateBuilder.BuildCollectionPredicate(collectionSelector, result.Value, false));
         }
     }
-
-
 
     public interface IExpressionBuilderForCollection<Model, TCollection>
     {

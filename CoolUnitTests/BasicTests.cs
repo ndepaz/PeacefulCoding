@@ -724,9 +724,7 @@ namespace CoolUnitTests
         [MemberData(nameof(PeopleWithPets))]
         public void Collections_test(List<Person> people)
         {
-
             //arrange
-
             var builder = ExpressionBuilder<Person>.Create();
             
             var result = builder
@@ -741,11 +739,17 @@ namespace CoolUnitTests
                 .OrElse()
                 .Compare(QueryOperation.EndsWith)
                 .WithAnyValue("3")
+                .AndAlso()
+                .Compare(QueryOperation.Equals)
+                .WithAnyValue("Fido4")
+                .OrElse()
+                .Compare(QueryOperation.EndsWith)
+                .WithAnyValue("1")
                 .AsExpressionResult();
 
             result.IsSuccess.Should().BeTrue();
 
-            Expression<Func<Person, bool>> expression = x => x.Pets.Any(y=>y.Name.StartsWith("Fi") && y.Name.Contains("2") || y.Name.EndsWith("3"));
+            Expression<Func<Person, bool>> expression = x => x.Pets.Any(y=>y.Name.StartsWith("Fi") && y.Name.Contains("2") || y.Name.EndsWith("3") && y.Name.Equals("Fido4") || y.Name.EndsWith("1") );
             
             result.Value.Should().BeEquivalentTo(expression);
             
