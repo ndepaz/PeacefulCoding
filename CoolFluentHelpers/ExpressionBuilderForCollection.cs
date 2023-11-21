@@ -11,13 +11,13 @@ namespace CoolFluentHelpers
 {
     public class ExpressionBuilderForCollection<RootModel> : IExpressionBuilderForCollection<RootModel>
     {
-        public ExpressionBuilderForCollection()
+        private ExpressionBuilderForCollection()
         {
         }
 
-        internal static IExpressionBuilderForCollection<RootModel1> Create<RootModel1>()
+        internal static IExpressionBuilderForCollection<RootModel> Create()
         {
-            return new ExpressionBuilderForCollection<RootModel1>();
+            return new ExpressionBuilderForCollection<RootModel>();
         }
 
         public IForCollectionBuilder<RootModel,T> ForCollection<T>(Expression<Func<RootModel, IEnumerable<T>>> collectionSelector, string rootDisplayName)
@@ -98,7 +98,7 @@ namespace CoolFluentHelpers
 
     public class ClauseWithExpression<T>
     {
-        public Expression<Func<T, bool>> Expression { get; set; }
+        public Expression<Func<T, bool>> Expression { get; }
         public QueryClause Clause { get; set; }
         private ClauseWithExpression(Expression<Func<T, bool>> expression, QueryClause clause)
         {
@@ -117,9 +117,12 @@ namespace CoolFluentHelpers
         string PropertyDisplayName { get; }
 
         ICompareValueForCollection<RootModel> Compare(QueryOperation queryOperation);
-        ICompareValueForCollection<RootModel> CompareWithDefault();
         ICompareExpressionForCollection<RootModel> OnlyIf(bool condition);
         public QueryOperation GetQueryOperation();
+        public ICompareValueForCollection<RootModel> CompareWithDefault();
+        Type GetCollectionModelPropertyType();
+
+        Type GetPropertyType();
     }
 
     public class ExpressionComparisonForCollection<RootModel,T, TValue> : ICompareExpressionForCollection<RootModel>
@@ -193,18 +196,6 @@ namespace CoolFluentHelpers
             return this;
         }
 
-        internal ExpressionComparisonForCollection<RootModel,T, TValue> ChangeCurrentToAnd()
-        {
-            CurrentQueryClause = QueryClause.And;
-            return this;
-        }
-
-        internal ExpressionComparisonForCollection<RootModel,T, TValue> ChangeCurrentToOr()
-        {
-            CurrentQueryClause = QueryClause.Or;
-            return this;
-        }
-
         internal void SetValue(TValue value)
         {
             this.Value = value;
@@ -242,6 +233,11 @@ namespace CoolFluentHelpers
             _expressionList.Add(ClauseWithExpression<T>.Create(expression, CurrentQueryClause));
 
             return this;
+        }
+
+        public Type GetCollectionModelPropertyType()
+        {
+            return typeof(T);
         }
 
         public Type GetPropertyType()
@@ -340,16 +336,24 @@ namespace CoolFluentHelpers
 
         public Result<Expression<Func<RootModel, bool>>> AsExpressionResult()
         {
-            _expressionComparison.AddExpressionsList(WithValue((TValue)_value));
 
-            var result = _expressionComparison.AsExpression();
+            try
+            { 
+                _expressionComparison.AddExpressionsList(WithValue((TValue)_value));
+                
+                var result = _expressionComparison.AsExpression();
+                
+                if (result.IsFailure)
+                {
+                    return Result.Failure<Expression<Func<RootModel, bool>>>(result.Error);
+                }
 
-            if (result.IsFailure)
-            {
-                return Result.Failure<Expression<Func<RootModel, bool>>>(result.Error);
+                return Result.Success(PredicateBuilder.BuildCollectionPredicate(collectionSelector, result.Value, false));
             }
-
-            return Result.Success(PredicateBuilder.BuildCollectionPredicate(collectionSelector, result.Value, false));
+            catch (Exception e)
+            {
+                return Result.Failure<Expression<Func<RootModel, bool>>>(e.Message);
+            }
         }
     }
 
