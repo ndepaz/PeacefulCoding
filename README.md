@@ -8,7 +8,7 @@ There is still more to come, but for now you can use it to create simple express
 
 QueryOperation are meant to be controlled by the developer as there isn't a easy way to narrow them by property type just yet.
 
-Now, IEnumerables expressions are supported.
+Now, IEnumerable expressions are supported.
 
 ## Simple usage in UnitTest form
 Visit the unit tests project to learn more
