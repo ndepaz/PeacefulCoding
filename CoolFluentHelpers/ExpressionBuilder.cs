@@ -66,10 +66,11 @@ namespace CoolFluentHelpers
             }
             return result;
         }
-        public IForCollectionBuilder<T, TValue> ForCollection<TValue>(Expression<Func<T, IEnumerable<TValue>>> propertyExpression, string displayName = null)
+        public static IExpressionBuilderForCollection<T> ForCollections()
         {
-            return ExpressionBuilderForCollection<T, TValue>.Create(propertyExpression, displayName);
+            return new ExpressionBuilderForCollection<T>();
         }
+
         public ICompareExpression<T> ForProperty<TValue>(Expression<Func<T, TValue>> propertyExpression, string displayName = null)
         {
             if (displayName is null)
@@ -86,16 +87,15 @@ namespace CoolFluentHelpers
 
         public IResult<ICompareExpression<T>> FirstPropertyByDisplayName(string propertyDisplayName)
         {
-
             var expressionComparison = compareExpressions.FirstOrDefault(x => x.PropertyDisplayName == propertyDisplayName);
 
             return Result.SuccessIf(expressionComparison is not null, expressionComparison, "Property was not found");
         }
+
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Use FirstPropertyByDisplayName instead. Obsolete due to Typo")]
         public IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName)
         {
-
             var expressionComparison = compareExpressions.FirstOrDefault(x => x.PropertyDisplayName == propertyDisplayName);
 
             return Result.SuccessIf(expressionComparison is not null, expressionComparison, "Property was not found");
@@ -111,6 +111,7 @@ namespace CoolFluentHelpers
 
     public interface IExpressionBuilder<T>
     {
+        abstract static IExpressionBuilderForCollection<T> ForCollections();
         [EditorBrowsable(EditorBrowsableState.Never)]
         [Obsolete("Use FirstPropertyByDisplayName instead. Obsolete due to Typo")]
         IResult<ICompareExpression<T>> FindByPropertyByDisplayName(string propertyDisplayName);
@@ -137,9 +138,8 @@ namespace CoolFluentHelpers
 
         private bool _isOnlyIf = true;
 
-        private List<Expression<Func<T, bool>>> _expressionAndList = new();
-        private List<Expression<Func<T, bool>>> _expressionOrList = new();
-
+        private List<ClauseWithExpression<T>> _expressionsList = new();
+        internal QueryClause CurrentQueryClause { get; private set; }
         private ExpressionComparison(Expression<Func<T, TValue>> propertyExpression, string propertyDisplayName)
         {
             PropertyExpression = propertyExpression;
@@ -155,14 +155,14 @@ namespace CoolFluentHelpers
             Value = value;
         }
 
-        internal static ExpressionComparison<T, TValue> Copy(ExpressionComparison<T, TValue> expressionComparison)
+        internal static ExpressionComparison<T, TValue> StoreComparisonAndQueryInfo(ExpressionComparison<T, TValue> expressionComparison)
         {
             return new ExpressionComparison<T, TValue>(
                 expressionComparison.PropertyExpression,
                 expressionComparison.PropertyDisplayName,
                 expressionComparison.Value,
                 expressionComparison.QueryOperation)
-                .ChangeCurrentAndOrClause(expressionComparison.IsAnd);
+                .ChangeCurrentClause(expressionComparison.CurrentQueryClause);
         }
 
         internal static ExpressionComparison<T, TValue> Create(string propertyDisplayName, Expression<Func<T, TValue>> propertyExpression)
@@ -182,22 +182,11 @@ namespace CoolFluentHelpers
 
             return ExpressionValue<T, TValue>.Create(this);
         }
-
-        private ExpressionComparison<T, TValue> ChangeCurrentAndOrClause(bool useAnd)
+        internal ExpressionComparison<T, TValue> ChangeCurrentClause(QueryClause queryClause)
         {
-            IsAnd = useAnd;
+            CurrentQueryClause = queryClause;
 
             return this;
-        }
-
-        internal ExpressionComparison<T, TValue> ChangeCurrentToAnd()
-        {
-            return ChangeCurrentAndOrClause(true);
-        }
-
-        internal ExpressionComparison<T, TValue> ChangeCurrentToOr()
-        {
-            return ChangeCurrentAndOrClause(false);
         }
 
         internal void SetValue(TValue value)
@@ -224,28 +213,15 @@ namespace CoolFluentHelpers
                 return Result.Failure<Expression<Func<T, bool>>>("OnlyIf condition was not met");
             }
 
-            var andExpressionsList = _expressionAndList;
-
-            var orExpressionsList = _expressionOrList;
-
-            return ExpressionCombiner.CombineExpressions(andExpressionsList, orExpressionsList);
+            return ExpressionCombiner.CombineExpressionsInOrder(_expressionsList);
         }
 
-        internal ICompareExpression<T> AddExpressionsToAndList(ExpressionComparison<T, TValue> expressionComparison)
+        internal ICompareExpression<T> AddExpressionsList(ExpressionComparison<T, TValue> expressionComparison)
         {
 
             var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, expressionComparison.Value);
 
-            _expressionAndList.Add(expression);
-
-            return this;
-        }
-
-        internal ICompareExpression<T> AddExpressionsToOrList(ExpressionComparison<T, TValue> expressionComparison)
-        {
-            var expression = ExpressionBuilder.BuildPredicate(expressionComparison.PropertyExpression, expressionComparison.QueryOperation, expressionComparison.Value);
-
-            _expressionOrList.Add(expression);
+            _expressionsList.Add(ClauseWithExpression<T>.Create(expression, CurrentQueryClause));
 
             return this;
         }
@@ -335,7 +311,7 @@ namespace CoolFluentHelpers
         {
             _expressionComparison.SetValue(value);
 
-            return ExpressionComparison<T, TValue>.Copy(_expressionComparison);
+            return ExpressionComparison<T, TValue>.StoreComparisonAndQueryInfo(_expressionComparison);
         }
 
         public ICompareAndOr<T> WithAnyValue(object value)
@@ -357,28 +333,25 @@ namespace CoolFluentHelpers
 
         public ICompareExpression<T> OrElse()
         {
-            _expressionComparison.ChangeCurrentToOr();
+            var instance = _expressionComparison.AddExpressionsList(WithValue((TValue)_value));
+            
+            _expressionComparison.ChangeCurrentClause(QueryClause.Or);
 
-            return _expressionComparison.AddExpressionsToOrList(WithValue((TValue)_value));
+            return instance;
         }
 
         public ICompareExpression<T> AndAlso()
         {
-            _expressionComparison.ChangeCurrentToAnd();
+            var instance = _expressionComparison.AddExpressionsList(WithValue((TValue)_value));
 
-            return _expressionComparison.AddExpressionsToAndList(WithValue((TValue)_value));
+            _expressionComparison.ChangeCurrentClause(QueryClause.And);
+
+            return instance;
         }
 
         public IResult<Expression<Func<T, bool>>> AsExpressionResult()
         {
-            if (_expressionComparison.IsAnd)
-            {
-                AndAlso();
-            }
-            else
-            {
-                OrElse();
-            }
+            _expressionComparison.AddExpressionsList(WithValue((TValue)_value));
 
             return _expressionComparison.AsExpression();
         }
@@ -463,14 +436,22 @@ namespace CoolFluentHelpers
                         Expression<Func<T, bool>> left = combinedExpression;
                         Expression<Func<T, bool>> right = currentClause.Expression;
 
-                        // Replace parameters before combining expressions
-                        var visitor = new ReplaceExpressionVisitor(right.Parameters[0], left.Parameters[0]);
-                        var rightBodyWithReplacedParameter = visitor.Visit(right.Body);
+                        if(combinedExpression == null)
+                        {
+                            combinedExpression = right;
+                        }
+                        else
+                        {
 
-                        Func<Expression, Expression, BinaryExpression> rightCombiner = currentClause.Clause == QueryClause.And ? Expression.AndAlso : Expression.OrElse;
+                            // Replace parameters before combining expressions
+                            var visitor = new ReplaceExpressionVisitor(right.Parameters[0], left.Parameters[0]);
+                            var rightBodyWithReplacedParameter = visitor.Visit(right.Body);
 
-                        var combinedBody = rightCombiner(left.Body, rightBodyWithReplacedParameter);
-                        combinedExpression = Expression.Lambda<Func<T, bool>>(combinedBody, left.Parameters);
+                            Func<Expression, Expression, BinaryExpression> rightCombiner = currentClause.Clause == QueryClause.And ? Expression.AndAlso : Expression.OrElse;
+
+                            var combinedBody = rightCombiner(left.Body, rightBodyWithReplacedParameter);
+                            combinedExpression = Expression.Lambda<Func<T, bool>>(combinedBody, left.Parameters);
+                        }
                     }
                 }
             }
@@ -483,6 +464,8 @@ namespace CoolFluentHelpers
             return Result.Success(combinedExpression);
         }
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        [Obsolete("Use CombineExpressionsInOrder instead")]
         private static Expression<Func<T, bool>> CombineExpression<T>(Expression<Func<T, bool>> initialExpression, Expression<Func<T, bool>> newExpression, Func<Expression, Expression, BinaryExpression> combiner)
         {
             if (initialExpression == null)

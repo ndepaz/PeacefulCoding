@@ -412,7 +412,7 @@ namespace CoolUnitTests
             Expression<Func<Person, int>> propDerivedName = x => x.Age;
 
             //act 
-            var result = builder.FindByPropertyByDisplayName(propDerivedName.Body.ToString());
+            var result = builder.FirstPropertyByDisplayName(propDerivedName.Body.ToString());
 
             result.IsSuccess.Should().BeTrue();
 
@@ -725,11 +725,11 @@ namespace CoolUnitTests
         public void Collections_test(List<Person> people)
         {
             //arrange
-            var builder = ExpressionBuilder<Person>.Create();
+            var builder = ExpressionBuilder<Person>.ForCollections();
             
             var result = builder
                 .ForCollection(x=>x.Pets)
-                .WithProperty(x => x.Name)
+                .ForProperty(x => x.Name)
                 .OnlyIf(true)
                 .Compare(QueryOperation.StartsWith)
                 .WithAnyValue("Fi")
@@ -759,6 +759,55 @@ namespace CoolUnitTests
 
             list.Should().BeEquivalentTo(list2);
 
+        }
+
+        [Theory]
+        [MemberData(nameof(PeopleWithPets))]
+        public void single_collection_expression(List<Person> people)
+        {
+            //arrange
+            var builder = ExpressionBuilder<Person>.ForCollections();
+
+            var result = builder
+                .ForCollection(x => x.Pets)
+                .ForProperty(x => x.Name)
+                .OnlyIf(true)
+                .Compare(QueryOperation.EndsWith)
+                .WithAnyValue("4")
+                .AsExpressionResult();
+
+            result.IsSuccess.Should().BeTrue();
+
+            Expression<Func<Person, bool>> expression = x => x.Pets.Any(y => y.Name.EndsWith("4") );
+
+            result.Value.Should().BeEquivalentTo(expression);
+
+            var list = people.AsQueryable().Where(result.Value);
+
+            var list2 = people.AsQueryable().Where(expression);
+
+            list.Should().BeEquivalentTo(list2);
+
+        }
+
+        [Fact]
+        public void for_collections_we_can_get_all_properties_display_names()
+        {
+            var builder = ExpressionBuilder<Person>.ForCollections();
+
+            var petsCollection = builder.ForCollection(x => x.Pets);
+
+            petsCollection.ForProperty(x => x.Name, "Pet Name").Compare(QueryOperation.Equals);
+
+            petsCollection.ForProperty(x => x.Name, "Pet name starts with").Compare(QueryOperation.StartsWith);
+
+            var dictionary = petsCollection.GetPropertiesSupportedOperations();
+
+            dictionary.Should().NotBeEmpty();
+
+            dictionary.Keys.Should().Contain("Pet Name");
+
+            dictionary.Keys.Should().Contain("Pet name starts with");
         }
 
 
