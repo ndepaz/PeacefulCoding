@@ -1021,6 +1021,7 @@ namespace CoolUnitTests
 
             result.IsSuccess.Should().BeFalse();
         }
+
         [Fact]
         public void we_can_get_the_property_type()
         {
@@ -1037,6 +1038,62 @@ namespace CoolUnitTests
             var propertyType = result.GetPropertyType();
 
             propertyType.Should().Be(typeof(int));
+        }
+
+        [Fact]
+        public void flush_old_expressions()
+        {
+
+            //arrange
+            var builder = ExpressionBuilder<Person>.Create();
+
+            var property = builder
+                .ForProperty(x => x.Age);
+
+            var exp = property.Compare(QueryOperation.GreaterThan).WithAnyValue(18).AsExpressionResult();
+
+            var exp2 = property.Compare(QueryOperation.LessThan).WithAnyValue(80).AsExpressionResult();
+
+            exp.IsSuccess.Should().BeTrue();
+
+            exp2.IsSuccess.Should().BeTrue();
+
+            Expression<Func<Person, bool>> expression = x => x.Age > 18;
+
+            Expression<Func<Person, bool>> expression2 = x => x.Age < 80;
+
+            exp.Value.Should().BeEquivalentTo(expression);
+
+            exp2.Value.Should().BeEquivalentTo(expression2);
+
+        }
+
+        [Fact]
+        public void flush_old_expressions_for_collections()
+        {
+
+            //arrange
+            var builder = ExpressionBuilder<Person>.ForCollections().ForCollection(x => x.Familiy);
+
+            var property = builder
+                .ForProperty(x => x.Age);
+
+            var exp = property.Compare(QueryOperation.GreaterThan).WithAnyValue(18).AsAnyExpressionResult();
+
+            var exp2 = property.Compare(QueryOperation.LessThan).WithAnyValue(80).AsAnyExpressionResult();
+
+            exp.IsSuccess.Should().BeTrue();
+
+            exp2.IsSuccess.Should().BeTrue();
+
+            Expression<Func<Person, bool>> expression = x => x.Familiy.Any(x=> x.Age > 18);
+
+            Expression<Func<Person, bool>> expression2 = x => x.Familiy.Any(x=> x.Age < 80);
+
+            exp.Value.Should().BeEquivalentTo(expression);
+
+            exp2.Value.Should().BeEquivalentTo(expression2);
+
         }
     }
 }

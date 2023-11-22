@@ -220,9 +220,12 @@ namespace CoolFluentHelpers
                 return Result.Failure<Expression<Func<T, bool>>>("OnlyIf condition was not met");
             }
 
-            var andExpressionsList = _expressionList;
+            var expression = ExpressionCombiner.CombineExpressionsInOrder(_expressionList);
 
-            return ExpressionCombiner.CombineExpressionsInOrder(andExpressionsList);
+            _expressionList.Clear();
+
+            return expression;
+
         }
 
         internal ICompareExpressionForCollection<RootModel> AddExpressionsList(ExpressionComparisonForCollection<RootModel,T, TValue> expressionComparison)
