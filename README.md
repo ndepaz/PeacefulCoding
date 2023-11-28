@@ -108,6 +108,10 @@ list.Should().BeEquivalentTo(list2);
 
 ## Release Notes
 
+### v4.14.13
+- Adds support for AND/OR precedence rules
+    - With this change, queries will change to follow precedence rules where AND clause has precedence over OR clause.
+
 ### v3.13.12
 - Added support for Collections allowing you to create expressions for multiple properties under the same collection.
   - In addition adds support for the following operations under collections:
