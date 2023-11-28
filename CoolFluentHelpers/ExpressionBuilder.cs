@@ -334,7 +334,7 @@ namespace CoolFluentHelpers
         public ICompareExpression<T> OrElse()
         {
             var instance = _expressionComparison.AddExpressionsList(WithValue((TValue)_value));
-            
+
             _expressionComparison.ChangeCurrentClause(QueryClause.Or);
 
             return instance;
@@ -360,6 +360,62 @@ namespace CoolFluentHelpers
             catch (Exception ex)
             {
                 return Result.Failure<Expression<Func<T, bool>>>(ex.Message);
+            }
+        }
+    }
+
+    public static class ExpressionCombiner2
+    {
+        public static Expression<Func<T, bool>> CombineExpressions<T>(List<ClauseWithExpression<T>> expressionsList)
+        {
+            if (expressionsList == null || !expressionsList.Any())
+                throw new ArgumentException("Expression list is empty", nameof(expressionsList));
+
+            // Start with the first expression
+            Expression<Func<T, bool>> combinedExpression = expressionsList[0].Expression;
+
+            // Accumulates Group Expressions based on Clauses
+            Expression currentGroupExpression = combinedExpression.Body;
+            QueryClause? previousClause = null;
+
+            foreach (var clauseWithExp in expressionsList.Skip(1))
+            {
+                // Since AND has higher precedence than OR, wrap previous expressions in parentheses by starting a new "group"
+                if (clauseWithExp.Clause == QueryClause.Or && previousClause != QueryClause.Or)
+                {
+                    currentGroupExpression = combinedExpression = Expression.Lambda<Func<T, bool>>(currentGroupExpression, combinedExpression.Parameters);
+                }
+
+                var rightExpression = clauseWithExp.Expression.Body.ReplaceParameter(clauseWithExp.Expression.Parameters[0], combinedExpression.Parameters[0]);
+
+                currentGroupExpression = clauseWithExp.Clause switch
+                {
+                    QueryClause.And => Expression.AndAlso(currentGroupExpression, rightExpression),
+                    QueryClause.Or => Expression.OrElse(currentGroupExpression, rightExpression),
+                    _ => currentGroupExpression
+                };
+
+                previousClause = clauseWithExp.Clause;
+
+                combinedExpression = Expression.Lambda<Func<T, bool>>(currentGroupExpression, combinedExpression.Parameters);
+            }
+
+            return combinedExpression;
+        }
+
+        private static Expression ReplaceParameter(this Expression expression, ParameterExpression source, ParameterExpression target)
+        {
+            return new ParameterReplacer { Source = source, Target = target }.Visit(expression);
+        }
+
+        private class ParameterReplacer : ExpressionVisitor
+        {
+            public ParameterExpression Source;
+            public ParameterExpression Target;
+
+            protected override Expression VisitParameter(ParameterExpression node)
+            {
+                return node == Source ? Target : base.VisitParameter(node);
             }
         }
     }
@@ -395,80 +451,114 @@ namespace CoolFluentHelpers
             return Result.Success(combinedExpression);
         }
 
-        public static IResult<Expression<Func<T, bool>>> CombineExpressionsInOrder<T>(List<ClauseWithExpression<T>> clauseWithExpressions)
+        public static Expression<Func<T, bool>> CombineExpressionsAndOrPrecedence<T>(List<ClauseWithExpression<T>> clauses)
         {
-            Expression<Func<T, bool>> combinedExpression = null;
-
-            var index = 0;
-            foreach (var currentClause in clauseWithExpressions)
+            if (clauses == null || !clauses.Any())
             {
-                index++;
+                return null;
+            }
 
-                if (index % 2 == 0)
+
+            if (clauses.Count == 1)
+            {
+                return clauses[0].Expression;
+            }
+
+            Expression<Func<T, bool>> leftCombined = null;
+
+            var count = 0;
+            var visitedIndex = 0;
+            foreach (var clause in clauses)
+            {
+                count++;
+
+                if (count % 2 == 0 && count > 0)
                 {
-                    var previousClause = clauseWithExpressions[index - 2];
+                    var leftIndex = count - 2;
+                    var left = clauses[leftIndex];
+                    var right = clause;
 
-                    Expression<Func<T, bool>> left = previousClause.Expression;
-                    Expression<Func<T, bool>> right = currentClause.Expression;
+                    var hasBeenVisited = leftIndex == visitedIndex && visitedIndex > 0;
 
-                    var parameter = left.Parameters[0]; // single parameter expected for Func<T, bool>
+                    var thereIsANextNode = count < clauses.Count;
+                    Expression<Func<T, bool>> nextPair = null;
 
-                    // Create an instance of the ReplaceExpressionVisitor to replace the right parameter with the left one
-                    var visitor = new ReplaceExpressionVisitor(right.Parameters[0], parameter);
-                    var rightBodyWithReplacedParameter = visitor.Visit(right.Body);
-
-                    Func<Expression, Expression, BinaryExpression> leftCombiner = previousClause.Clause == QueryClause.And ? Expression.AndAlso : Expression.OrElse;
-                    Func<Expression, Expression, BinaryExpression> rightCombiner = currentClause.Clause == QueryClause.And ? Expression.AndAlso : Expression.OrElse;
-
-                    var combinedBody = rightCombiner(left.Body, rightBodyWithReplacedParameter);
-                    var dualExpression = Expression.Lambda<Func<T, bool>>(combinedBody, parameter);
-
-                    if (combinedExpression is null)
+                    if (hasBeenVisited)
                     {
-                        combinedExpression = dualExpression;
+                        leftCombined = CombineTwoExpressions(leftCombined, right.Expression, right.Clause);
+                        continue;
+                    }
+
+                    if (thereIsANextNode)
+                    {
+                        var next = clauses[count];
+                        if (next.Clause == QueryClause.And)
+                        {
+                            nextPair = CombineTwoExpressions(right.Expression, next.Expression, next.Clause);
+                            visitedIndex = count;
+                        }
+                    }
+
+                    var rightPair = nextPair ?? CombineTwoExpressions(left.Expression, right.Expression, right.Clause);
+
+                    if (leftCombined is not null)
+                    {
+                        leftCombined = CombineTwoExpressions(leftCombined, rightPair, left.Clause);
                     }
                     else
                     {
-                        // Use the visitor here as well to ensure that expression parameters match
-                        visitor = new ReplaceExpressionVisitor(dualExpression.Parameters[0], combinedExpression.Parameters[0]);
-                        var combinedBodyWithReplacedParameter = visitor.Visit(dualExpression.Body);
-                        combinedExpression = Expression.Lambda<Func<T, bool>>(
-                            leftCombiner(combinedExpression.Body, combinedBodyWithReplacedParameter), combinedExpression.Parameters);
-                    }
-                }
-                else
-                {
-                    if (index == clauseWithExpressions.Count)
-                    {
-                        Expression<Func<T, bool>> left = combinedExpression;
-                        Expression<Func<T, bool>> right = currentClause.Expression;
-
-                        if(combinedExpression == null)
+                        if (nextPair is not null)
                         {
-                            combinedExpression = right;
+                            leftCombined = CombineTwoExpressions(left.Expression, nextPair, right.Clause);
                         }
                         else
                         {
-
-                            // Replace parameters before combining expressions
-                            var visitor = new ReplaceExpressionVisitor(right.Parameters[0], left.Parameters[0]);
-                            var rightBodyWithReplacedParameter = visitor.Visit(right.Body);
-
-                            Func<Expression, Expression, BinaryExpression> rightCombiner = currentClause.Clause == QueryClause.And ? Expression.AndAlso : Expression.OrElse;
-
-                            var combinedBody = rightCombiner(left.Body, rightBodyWithReplacedParameter);
-                            combinedExpression = Expression.Lambda<Func<T, bool>>(combinedBody, left.Parameters);
+                            leftCombined = rightPair;
                         }
                     }
                 }
+                else if (count == clauses.Count && visitedIndex != clauses.Count - 1)
+                {
+                    var lastClause = clause;
+                    leftCombined = CombineTwoExpressions(leftCombined, lastClause.Expression, lastClause.Clause);
+                }
+
             }
 
-            if (combinedExpression == null)
+            return leftCombined;
+        }
+
+        private static Expression<Func<T, bool>> CombineTwoExpressions<T>(
+            Expression<Func<T, bool>> expr1,
+            Expression<Func<T, bool>> expr2,
+            QueryClause clause)
+        {
+            var parameter = Expression.Parameter(typeof(T), "x");
+
+            var visitedExpr1 = new ReplaceExpressionVisitor(expr1.Parameters[0], parameter).Visit(expr1.Body);
+            var visitedExpr2 = new ReplaceExpressionVisitor(expr2.Parameters[0], parameter).Visit(expr2.Body);
+
+            Expression combined;
+
+            switch (clause)
             {
-                return Result.Failure<Expression<Func<T, bool>>>("No expressions found.");
+                case QueryClause.And:
+                    combined = Expression.AndAlso(visitedExpr1, visitedExpr2);
+                    break;
+                case QueryClause.Or:
+                    combined = Expression.OrElse(visitedExpr1, visitedExpr2);
+                    break;
+                default:
+                    throw new NotSupportedException($"The query clause '{clause}' is not supported.");
             }
 
-            return Result.Success(combinedExpression);
+            return Expression.Lambda<Func<T, bool>>(combined, parameter);
+        }
+
+        public static IResult<Expression<Func<T, bool>>> CombineExpressionsInOrder<T>(List<ClauseWithExpression<T>> clauseWithExpressions)
+        {
+            var exp = CombineExpressionsAndOrPrecedence(clauseWithExpressions);
+            return Result.SuccessIf(exp is not null, exp, "No expressions found");
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]

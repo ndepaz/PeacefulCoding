@@ -725,9 +725,9 @@ namespace CoolUnitTests
         {
             //arrange
             var builder = ExpressionBuilder<Person>.ForCollections();
-            
+
             var result = builder
-                .ForCollection(x=>x.Pets)
+                .ForCollection(x => x.Pets)
                 .ForProperty(x => x.Name)
                 .OnlyIf(true)
                 .Compare(QueryOperation.StartsWith)
@@ -748,10 +748,45 @@ namespace CoolUnitTests
 
             result.IsSuccess.Should().BeTrue();
 
-            Expression<Func<Person, bool>> stronglyTypedVersionExpression = x => x.Pets.Any(y=>y.Name.StartsWith("Fi") && y.Name.Contains("2") || y.Name.EndsWith("3") && y.Name.Equals("Fido4") || y.Name.EndsWith("1") );
-            
+            Expression<Func<Person, bool>> stronglyTypedVersionExpression = x => x.Pets.Any(y => y.Name.StartsWith("Fi") && y.Name.Contains("2") || y.Name.EndsWith("3") && y.Name.Equals("Fido4") || y.Name.EndsWith("1"));
+
             result.Value.Should().BeEquivalentTo(stronglyTypedVersionExpression);
-            
+
+            var list = people.AsQueryable().Where(result.Value);
+
+            var list2 = people.AsQueryable().Where(stronglyTypedVersionExpression);
+
+            list.Should().BeEquivalentTo(list2);
+
+        }
+
+        [Theory]
+        [MemberData(nameof(PeopleWithPets))]
+        public void Collections_test2(List<Person> people)
+        {
+            //arrange
+            var builder = ExpressionBuilder<Person>.ForCollections();
+
+            var result = builder
+                .ForCollection(x => x.Pets)
+                .ForProperty(x => x.Name)
+                .OnlyIf(true)
+                .Compare(QueryOperation.StartsWith)
+                .WithAnyValue("Fi")
+                .OrElse()
+                .Compare(QueryOperation.Contains)
+                .WithAnyValue("2")
+                .AndAlso()
+                .Compare(QueryOperation.EndsWith)
+                .WithAnyValue("3")
+                .AsAnyExpressionResult();
+
+            result.IsSuccess.Should().BeTrue();
+
+            Expression<Func<Person, bool>> stronglyTypedVersionExpression = x => x.Pets.Any(y => y.Name.StartsWith("Fi") || y.Name.Contains("2") && y.Name.EndsWith("3"));
+
+            result.Value.Should().BeEquivalentTo(stronglyTypedVersionExpression);
+
             var list = people.AsQueryable().Where(result.Value);
 
             var list2 = people.AsQueryable().Where(stronglyTypedVersionExpression);
@@ -776,7 +811,7 @@ namespace CoolUnitTests
 
             result.IsSuccess.Should().BeTrue();
 
-            Expression<Func<Person, bool>> stronglyTypedVersionExpression = x => x.Pets.Any(y => y.Name.EndsWith("4") );
+            Expression<Func<Person, bool>> stronglyTypedVersionExpression = x => x.Pets.Any(y => y.Name.EndsWith("4"));
 
             result.Value.Should().BeEquivalentTo(stronglyTypedVersionExpression);
 
