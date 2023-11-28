@@ -364,62 +364,6 @@ namespace CoolFluentHelpers
         }
     }
 
-    public static class ExpressionCombiner2
-    {
-        public static Expression<Func<T, bool>> CombineExpressions<T>(List<ClauseWithExpression<T>> expressionsList)
-        {
-            if (expressionsList == null || !expressionsList.Any())
-                throw new ArgumentException("Expression list is empty", nameof(expressionsList));
-
-            // Start with the first expression
-            Expression<Func<T, bool>> combinedExpression = expressionsList[0].Expression;
-
-            // Accumulates Group Expressions based on Clauses
-            Expression currentGroupExpression = combinedExpression.Body;
-            QueryClause? previousClause = null;
-
-            foreach (var clauseWithExp in expressionsList.Skip(1))
-            {
-                // Since AND has higher precedence than OR, wrap previous expressions in parentheses by starting a new "group"
-                if (clauseWithExp.Clause == QueryClause.Or && previousClause != QueryClause.Or)
-                {
-                    currentGroupExpression = combinedExpression = Expression.Lambda<Func<T, bool>>(currentGroupExpression, combinedExpression.Parameters);
-                }
-
-                var rightExpression = clauseWithExp.Expression.Body.ReplaceParameter(clauseWithExp.Expression.Parameters[0], combinedExpression.Parameters[0]);
-
-                currentGroupExpression = clauseWithExp.Clause switch
-                {
-                    QueryClause.And => Expression.AndAlso(currentGroupExpression, rightExpression),
-                    QueryClause.Or => Expression.OrElse(currentGroupExpression, rightExpression),
-                    _ => currentGroupExpression
-                };
-
-                previousClause = clauseWithExp.Clause;
-
-                combinedExpression = Expression.Lambda<Func<T, bool>>(currentGroupExpression, combinedExpression.Parameters);
-            }
-
-            return combinedExpression;
-        }
-
-        private static Expression ReplaceParameter(this Expression expression, ParameterExpression source, ParameterExpression target)
-        {
-            return new ParameterReplacer { Source = source, Target = target }.Visit(expression);
-        }
-
-        private class ParameterReplacer : ExpressionVisitor
-        {
-            public ParameterExpression Source;
-            public ParameterExpression Target;
-
-            protected override Expression VisitParameter(ParameterExpression node)
-            {
-                return node == Source ? Target : base.VisitParameter(node);
-            }
-        }
-    }
-
     public static class ExpressionCombiner
     {
         [EditorBrowsable(EditorBrowsableState.Never)]
@@ -450,8 +394,13 @@ namespace CoolFluentHelpers
 
             return Result.Success(combinedExpression);
         }
-
-        public static Expression<Func<T, bool>> CombineExpressionsAndOrPrecedence<T>(List<ClauseWithExpression<T>> clauses)
+        /// <summary>
+        /// Follows SQL And/OR Precedence. Ignores the first QueryClause but not the expression
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="clauses"></param>
+        /// <returns></returns>
+        public static Expression<Func<T, bool>> CombineExpressionsIgnoreFirstClause<T>(List<ClauseWithExpression<T>> clauses)
         {
             if (clauses == null || !clauses.Any())
             {
@@ -528,7 +477,7 @@ namespace CoolFluentHelpers
             return leftCombined;
         }
 
-        private static Expression<Func<T, bool>> CombineTwoExpressions<T>(
+        public static Expression<Func<T, bool>> CombineTwoExpressions<T>(
             Expression<Func<T, bool>> expr1,
             Expression<Func<T, bool>> expr2,
             QueryClause clause)
@@ -555,9 +504,89 @@ namespace CoolFluentHelpers
             return Expression.Lambda<Func<T, bool>>(combined, parameter);
         }
 
+        /// <summary>
+        /// Follows SQL And/OR Precedence. Ignores the last QueryClause but not the expression
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="clauses"></param>
+        /// <returns></returns>
+        public static Expression<Func<T, bool>> CombineExpressionsIgnoreLastClause<T>(List<ClauseWithExpression<T>> clauses)
+        {
+            if (clauses == null || !clauses.Any())
+            {
+                return null;
+            }
+
+
+            if (clauses.Count == 1)
+            {
+                return clauses[0].Expression;
+            }
+
+            Expression<Func<T, bool>> leftCombined = null;
+
+            var count = 0;
+            var visitedIndex = 0;
+            foreach (var clause in clauses)
+            {
+                count++;
+
+                if (count % 2 == 0 && count > 0)
+                {
+                    var leftIndex = count - 2;
+                    var left = clauses[leftIndex];
+                    var right = clause;
+
+                    var hasBeenVisited = leftIndex == visitedIndex && visitedIndex > 0;
+
+                    var thereIsANextNode = count < clauses.Count;
+                    Expression<Func<T, bool>> nextPair = null;
+
+                    if (hasBeenVisited)
+                    {
+                        leftCombined = CombineTwoExpressions(leftCombined, right.Expression, left.Clause);
+                        continue;
+                    }
+
+                    if (right.Clause == QueryClause.And && thereIsANextNode)
+                    {
+                        var nextClause = clauses[count];
+                        nextPair = CombineTwoExpressions(right.Expression, nextClause.Expression, right.Clause);
+                        visitedIndex = count;
+                    }
+
+                    var rightPair = nextPair ?? CombineTwoExpressions(left.Expression, right.Expression, left.Clause);
+
+                    if (leftCombined is not null)
+                    {
+                        leftCombined = CombineTwoExpressions(leftCombined, rightPair, left.Clause);
+                    }
+                    else
+                    {
+                        if (nextPair is not null)
+                        {
+                            leftCombined = CombineTwoExpressions(left.Expression, nextPair, left.Clause);
+                        }
+                        else
+                        {
+                            leftCombined = rightPair;
+                        }
+                    }
+                }
+                else if (count == clauses.Count && visitedIndex != clauses.Count - 1)
+                {
+                    var lastClause = clause;
+                    leftCombined = CombineTwoExpressions(leftCombined, lastClause.Expression, lastClause.Clause);
+                }
+
+            }
+
+            return leftCombined;
+        }
+
         public static IResult<Expression<Func<T, bool>>> CombineExpressionsInOrder<T>(List<ClauseWithExpression<T>> clauseWithExpressions)
         {
-            var exp = CombineExpressionsAndOrPrecedence(clauseWithExpressions);
+            var exp = CombineExpressionsIgnoreFirstClause(clauseWithExpressions);
             return Result.SuccessIf(exp is not null, exp, "No expressions found");
         }
 
