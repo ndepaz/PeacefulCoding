@@ -36,13 +36,34 @@ namespace CoolUnitTests
         {
             _family.AddRange(people);
         }
+
+        public PhoneModel PrimaryPhoneModel { get; set; }
+
+    }
+
+    public class PhoneModel
+    {
+        public string Name { get; }
+        private PhoneModel(string name)
+        {
+            Name = name;
+        }
+
+        public static PhoneModel Iphone = new("iphone");
+        public static PhoneModel Android = new("android");
+        public static PhoneModel Windows = new("windows");
+
+        public static implicit operator string(PhoneModel model)
+        {
+            return model.Name;
+        }
     }
 
     public class Pet
     {
         public Pet()
         {
-            
+
         }
         public string Name { get; }
 

@@ -14,7 +14,7 @@ namespace CoolFluentHelpers
         {
             var propertyName = propertySelector.GetPropertyPath();
             var parameterExp = propertySelector.Parameters[0];
-            var propertyExp = Expression.Property(parameterExp, propertyName);
+            var propertyExp = ExpressionBuilder.GetNestedProperty(parameterExp, propertyName);
 
             // Create the param with a value
 
@@ -95,7 +95,7 @@ namespace CoolFluentHelpers
             return Expression.Lambda<Func<Model, bool>>(containsMethodExp, parameter);
         }
 
-        private static MemberExpression GetNestedProperty(Expression expression, string propertyName)
+        internal static MemberExpression GetNestedProperty(Expression expression, string propertyName)
         {
             foreach (var property in propertyName.Split('.'))
             {

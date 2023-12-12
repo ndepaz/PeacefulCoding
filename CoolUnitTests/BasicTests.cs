@@ -719,6 +719,46 @@ namespace CoolUnitTests
 
             yield return new object[] { list };
         }
+
+        public static IEnumerable<object[]> PeopleWithPrimaryPhone()
+        {
+
+            var son = new Person("Bob", DateTime.Now.AddYears(-15));
+            son.Pets.Add(new Pet("Fido2"));
+
+            son.FavoriteNumber = 14;
+
+            var daughter = new Person("Elisa", DateTime.Now.AddYears(-8));
+            daughter.Pets.Add(new Pet("Fido3"));
+
+            daughter.FavoriteNumber = 8;
+
+            var dad = new Person("John", DateTime.Now.AddYears(-40));
+
+            dad.FavoriteNumber = 3;
+
+            var mom = new Person("Jane", DateTime.Now.AddYears(-30));
+            mom.Pets.Add(new Pet("Fido1"));
+
+            mom.FavoriteNumber = 7;
+
+            mom.AddFamily(son, daughter);
+
+            mom.Pets.Add(new Pet("Fido4"));
+
+            mom.AddFamily(daughter, dad, son);
+
+            dad.AddFamily(son, daughter, mom);
+
+            mom.PrimaryPhoneModel = PhoneModel.Iphone;
+            dad.PrimaryPhoneModel = PhoneModel.Android;
+            son.PrimaryPhoneModel = PhoneModel.Android;
+            daughter.PrimaryPhoneModel = PhoneModel.Iphone;
+
+            var list = new List<Person> { mom, son, daughter, dad };
+
+            yield return new object[] { list };
+        }
         [Theory]
         [MemberData(nameof(PeopleWithPets))]
         public void Collections_test(List<Person> people)
@@ -1103,6 +1143,37 @@ namespace CoolUnitTests
 
         }
 
+        [Theory]
+        [MemberData(nameof(PeopleWithPrimaryPhone))]
+        public void expression_per_direct_dependecies(List<Person> people)
+        {
+
+            //arrange
+            var builder = ExpressionBuilder<Person>.Create();
+
+            var property = builder
+                .ForProperty(x => x.PrimaryPhoneModel.Name);
+
+            var exp = property.Compare(QueryOperation.StartsWith).WithAnyValue((string)PhoneModel.Android).AsExpressionResult();
+
+            Expression<Func<Person, bool>> exp2 = x => x.PrimaryPhoneModel.Name.StartsWith(PhoneModel.Android);
+
+            exp.IsSuccess.Should().BeTrue();
+
+            exp.Value.Should().BeEquivalentTo(exp2);
+
+            var result = people.AsQueryable().Where(exp2);
+
+            result.Should().HaveCount(2);
+
+            var result2 = people.AsQueryable().Where(exp.Value);
+
+            result2.Should().HaveCount(2);
+
+            result2.Should().BeEquivalentTo(result);
+
+        }
+
         [Fact]
         public void flush_old_expressions_for_collections()
         {
@@ -1121,9 +1192,9 @@ namespace CoolUnitTests
 
             exp2.IsSuccess.Should().BeTrue();
 
-            Expression<Func<Person, bool>> expression = x => x.Familiy.Any(x=> x.Age > 18);
+            Expression<Func<Person, bool>> expression = x => x.Familiy.Any(x => x.Age > 18);
 
-            Expression<Func<Person, bool>> expression2 = x => x.Familiy.Any(x=> x.Age < 80);
+            Expression<Func<Person, bool>> expression2 = x => x.Familiy.Any(x => x.Age < 80);
 
             exp.Value.Should().BeEquivalentTo(expression);
 
